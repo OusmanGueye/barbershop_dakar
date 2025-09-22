@@ -3,7 +3,7 @@ class UserModel {
   final String phone;
   final String? fullName;
   final String role;
-  final String? avatarUrl;
+  String? avatarUrl;
   final String preferredLanguage;
   final DateTime createdAt;
   final DateTime updatedAt;

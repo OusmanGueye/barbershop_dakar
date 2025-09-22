@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../config/app_constants.dart';
 import '../../providers/auth_provider.dart';
+import 'barber_login_screen.dart';
 import 'otp_screen.dart';
+import 'owner_signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -157,6 +159,60 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: authProvider.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Recevoir le code'),
+                  ),
+                ),
+
+                // Ajouter après le bouton "Recevoir le code"
+                const SizedBox(height: 16),
+
+// Divider
+                Row(
+                  children: const [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('OU', style: TextStyle(color: Colors.grey)),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+// Bouton Créer Barbershop
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OwnerSignupScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.store),
+                  label: const Text('Créer mon Barbershop'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    side: BorderSide(color: AppTheme.primaryColor),
+                  ),
+                ),
+
+                // Après le bouton "Créer mon Barbershop"
+                const SizedBox(height: 12),
+
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BarberLoginScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.content_cut),
+                  label: const Text('Je suis barbier'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
                   ),
                 ),
                 

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/upload_service.dart';
 import '../models/user_model.dart';
+import '../config/supabase_config.dart'; // Ajouter cet import
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
-  
+  final UploadService _uploadService = UploadService();
+
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
@@ -50,10 +53,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       _setLoading(true);
       _errorMessage = null;
-      
+
       await _authService.verifyOTP(phone, otp);
       await loadCurrentUser();
-      
+
       return true;
     } catch (e) {
       _errorMessage = e.toString();
@@ -63,13 +66,41 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Mettre à jour le profil
+  // Mettre à jour le profil (CORRIGÉ)
   Future<bool> updateProfile(Map<String, dynamic> data) async {
     try {
       _setLoading(true);
-      await _authService.updateProfile(data);
+      _errorMessage = null;
+
+      // Utiliser SupabaseConfig au lieu de _supabase
+      await SupabaseConfig.supabase
+          .from('users')
+          .update(data)
+          .eq('id', SupabaseConfig.currentUser!.id);
+
       await loadCurrentUser();
       return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Upload avatar
+  Future<bool> uploadAvatar() async {
+    try {
+      _setLoading(true);
+      _errorMessage = null;
+
+      final avatarUrl = await _uploadService.uploadAvatar();
+      if (avatarUrl != null) {
+        _currentUser?.avatarUrl = avatarUrl;
+        notifyListeners();
+        return true;
+      }
+      return false;
     } catch (e) {
       _errorMessage = e.toString();
       return false;

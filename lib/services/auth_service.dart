@@ -47,9 +47,11 @@ class AuthService {
     }
   }
 
-  // Créer ou mettre à jour le profil
+
+  // Méthode corrigée pour créer/mettre à jour le profil
   Future<void> _createOrUpdateUserProfile(User user) async {
     try {
+      // D'abord vérifier si l'utilisateur existe
       final existingUser = await _supabase
           .from('users')
           .select()
@@ -57,17 +59,24 @@ class AuthService {
           .maybeSingle();
 
       if (existingUser == null) {
-        // Créer nouveau profil
+        // Créer nouveau profil avec les bonnes permissions
         await _supabase.from('users').insert({
           'id': user.id,
-          'phone': user.phone,
+          'phone': user.phone ?? '',
           'role': 'client',
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
+        print('Profil utilisateur créé avec succès');
+      } else {
+        // Mettre à jour last login
+        await _supabase.from('users').update({
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', user.id);
+        print('Profil utilisateur mis à jour');
       }
     } catch (e) {
-      print('Erreur création profil: $e');
+      print('Erreur création/mise à jour profil: $e');
     }
   }
 
