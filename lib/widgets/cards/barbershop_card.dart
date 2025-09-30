@@ -41,33 +41,29 @@ class BarbershopCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      barbershop.mainImage,
+                    // Image principale ou placeholder
+                    barbershop.profileImage != null
+                        ? Image.network(
+                      barbershop.profileImage!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.store,
-                                size: 50,
-                                color: AppTheme.primaryColor.withOpacity(0.5),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                barbershop.name,
-                                style: TextStyle(
-                                  color: AppTheme.primaryColor.withOpacity(0.7),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                                : null,
+                            color: AppTheme.primaryColor,
                           ),
                         );
                       },
-                    ),
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildImagePlaceholder();
+                      },
+                    )
+                        : _buildImagePlaceholder(),
+
                     // Badge ouvert/fermé
                     Positioned(
                       top: 10,
@@ -91,6 +87,31 @@ class BarbershopCard extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                    // Badge "Pas de photo" si pas d'image
+                    if (barbershop.profileImage == null)
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'PHOTO MANQUANTE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -169,7 +190,7 @@ class BarbershopCard extends StatelessWidget {
                       if (barbershop.acceptsOnlinePayment)
                         Row(
                           children: [
-                            if (barbershop.waveNumber != null)
+                            if (barbershop.waveNumber != null && barbershop.waveNumber!.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
@@ -185,8 +206,12 @@ class BarbershopCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            const SizedBox(width: 5),
-                            if (barbershop.orangeMoneyNumber != null)
+                            if (barbershop.waveNumber != null &&
+                                barbershop.waveNumber!.isNotEmpty &&
+                                barbershop.orangeMoneyNumber != null &&
+                                barbershop.orangeMoneyNumber!.isNotEmpty)
+                              const SizedBox(width: 5),
+                            if (barbershop.orangeMoneyNumber != null && barbershop.orangeMoneyNumber!.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
@@ -211,6 +236,40 @@ class BarbershopCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: AppTheme.primaryColor.withOpacity(0.1),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.store,
+            size: 50,
+            color: AppTheme.primaryColor.withOpacity(0.5),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            barbershop.name,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.primaryColor.withOpacity(0.7),
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Pas de photo',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }

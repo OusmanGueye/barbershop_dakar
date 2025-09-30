@@ -16,8 +16,10 @@ class BarbershopModel {
   final bool acceptsOnlinePayment;
   final String? waveNumber;
   final String? orangeMoneyNumber;
-  final List<String>? photos;
+  final List<String>? photos; // Ancien champ, à garder pour compatibilité
   final String? description;
+  final String? profileImage; // Image principale
+  final List<String>? galleryImages; // Galerie
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -41,6 +43,8 @@ class BarbershopModel {
     this.orangeMoneyNumber,
     this.photos,
     this.description,
+    this.profileImage,
+    this.galleryImages,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -70,6 +74,10 @@ class BarbershopModel {
           ? List<String>.from(json['photos'])
           : [],
       description: json['description'],
+      profileImage: json['profile_image'], // AJOUT
+      galleryImages: json['gallery_images'] != null
+          ? List<String>.from(json['gallery_images'])
+          : [], // AJOUT
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
@@ -101,8 +109,12 @@ class BarbershopModel {
     return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
-  // Obtenir l'image principale
+  // Obtenir l'image principale (avec fallback)
   String get mainImage {
+    // Priorité : profileImage > photos > placeholder
+    if (profileImage != null && profileImage!.isNotEmpty) {
+      return profileImage!;
+    }
     if (photos != null && photos!.isNotEmpty) {
       return photos!.first;
     }

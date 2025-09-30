@@ -21,9 +21,7 @@ class BarbershopDetailScreen extends StatefulWidget {
   State<BarbershopDetailScreen> createState() => _BarbershopDetailScreenState();
 }
 
-class _BarbershopDetailScreenState extends State<BarbershopDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _BarbershopDetailScreenState extends State<BarbershopDetailScreen> {
   ServiceModel? _selectedService;
   bool _isFavorite = false;
   List<Map<String, dynamic>> _reviews = [];
@@ -32,20 +30,12 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-
-    // Charger les détails du barbershop
+    // Charger les détails après le premier frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BarbershopProvider>().selectBarbershop(widget.barbershopId);
       _checkIfFavorite();
       _loadReviews();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   // Vérifier si c'est un favori
@@ -67,7 +57,7 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen>
         });
       }
     } catch (e) {
-      print('Erreur checkIfFavorite: $e');
+      debugPrint('Erreur checkIfFavorite: $e');
     }
   }
 
@@ -86,14 +76,12 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen>
       }
 
       if (_isFavorite) {
-        // Retirer des favoris
         await SupabaseConfig.supabase
             .from('favorites')
             .delete()
             .eq('user_id', userId)
             .eq('barbershop_id', widget.barbershopId);
       } else {
-        // Ajouter aux favoris
         await SupabaseConfig.supabase.from('favorites').insert({
           'user_id': userId,
           'barbershop_id': widget.barbershopId,
@@ -112,7 +100,7 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen>
         ),
       );
     } catch (e) {
-      print('Erreur toggleFavorite: $e');
+      debugPrint('Erreur toggleFavorite: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Erreur lors de la mise à jour des favoris'),
@@ -139,7 +127,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     try {
       await Share.share(text);
     } catch (e) {
-      print('Erreur partage: $e');
+      debugPrint('Erreur partage: $e');
     }
   }
 
@@ -149,19 +137,16 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     if (barbershop == null) return;
 
     String mapsUrl;
-
-    // Si on a les coordonnées GPS
     if (barbershop.latitude != null && barbershop.longitude != null) {
-      // URL Google Maps avec coordonnées
-      mapsUrl = 'https://www.google.com/maps/search/?api=1&query=${barbershop.latitude},${barbershop.longitude}';
+      mapsUrl =
+      'https://www.google.com/maps/search/?api=1&query=${barbershop.latitude},${barbershop.longitude}';
     } else {
-      // URL Google Maps avec adresse
-      final address = Uri.encodeComponent('${barbershop.address ?? ''} ${barbershop.quartier ?? ''} Dakar Senegal');
+      final address = Uri.encodeComponent(
+          '${barbershop.address ?? ''} ${barbershop.quartier ?? ''} Dakar Senegal');
       mapsUrl = 'https://www.google.com/maps/search/?api=1&query=$address';
     }
 
     final uri = Uri.parse(mapsUrl);
-
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -180,7 +165,6 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     if (barbershop?.phone == null) return;
 
     final uri = Uri.parse('tel:${barbershop!.phone}');
-
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
@@ -196,7 +180,6 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
   // Charger les avis
   Future<void> _loadReviews() async {
     setState(() => _isLoadingReviews = true);
-
     try {
       final response = await SupabaseConfig.supabase
           .from('reviews')
@@ -212,10 +195,71 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
         _reviews = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      print('Erreur loadReviews: $e');
+      debugPrint('Erreur loadReviews: $e');
     } finally {
       setState(() => _isLoadingReviews = false);
     }
+  }
+
+  // Placeholder image
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: AppTheme.primaryColor.withOpacity(0.8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.store, size: 100, color: Colors.white),
+          SizedBox(height: 10),
+          Text('Pas de photo', style: TextStyle(color: Colors.white, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  // Visionneuse plein écran
+  void _showImageGallery(BarbershopModel barbershop, int initialIndex) {
+    final allImages = <String>[];
+    if (barbershop.profileImage != null) allImages.add(barbershop.profileImage!);
+    if (barbershop.galleryImages != null) allImages.addAll(barbershop.galleryImages!);
+    if (allImages.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.95),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: PageController(initialPage: initialIndex),
+              itemCount: allImages.length,
+              itemBuilder: (context, index) {
+                return InteractiveViewer(
+                  child: Image.network(
+                    allImages[index],
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -225,373 +269,393 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     final services = provider.services;
 
     if (provider.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (barbershop == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(
-          child: Text('Barbershop non trouvé'),
-        ),
+        body: const Center(child: Text('Barbershop non trouvé')),
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // Header avec image
-          SliverAppBar(
-            expandedHeight: 250,
-            pinned: true,
-            backgroundColor: AppTheme.primaryColor,
-            leading: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            // Header avec image
+            SliverAppBar(
+              expandedHeight: 250,
+              pinned: true,
+              backgroundColor: AppTheme.primaryColor,
+              leading: Container(
+                margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.white.withOpacity(0.9),
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  barbershop.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    barbershop.mainImage,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppTheme.primaryColor.withOpacity(0.8),
-                        child: const Icon(
-                          Icons.store,
-                          size: 100,
-                          color: Colors.white,
-                        ),
-                      );
-                    },
+              flexibleSpace: FlexibleSpaceBar(
+                title: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.5),
-                        ],
-                      ),
+                  child: Text(
+                    barbershop.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,                // 👈 texte en blanc
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(0, 1)),
+                      ],
                     ),
                   ),
-                ],
+                ),
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (barbershop.profileImage != null)
+                      GestureDetector(
+                        onTap: () => _showImageGallery(barbershop, 0),
+                        child: Image.network(
+                          barbershop.profileImage!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const Center(child: CircularProgressIndicator());
+                          },
+                        ),
+                      )
+                    else
+                      _buildImagePlaceholder(),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black.withOpacity(0.5)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: _isFavorite ? Colors.red : AppTheme.primaryColor,
+                    ),
+                    onPressed: _toggleFavorite,
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.share, color: AppTheme.primaryColor),
+                    onPressed: _shareBarbershop,
+                  ),
+                ),
+              ],
+            ),
+
+            // Infos principales + Galerie horizontale + autres infos
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Status & rating
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: barbershop.isOpenNow
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: barbershop.isOpenNow ? Colors.green : Colors.red,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                size: 16,
+                                color: barbershop.isOpenNow ? Colors.green : Colors.red,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                barbershop.isOpenNow ? 'Ouvert' : 'Fermé',
+                                style: TextStyle(
+                                  color: barbershop.isOpenNow ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 20),
+                            const SizedBox(width: 5),
+                            Text(
+                              barbershop.rating.toStringAsFixed(1),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              ' (${barbershop.totalReviews} avis)',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Galerie horizontale
+                    if (barbershop.galleryImages != null &&
+                        barbershop.galleryImages!.isNotEmpty) ...[
+                      Text(
+                        'Photos',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: barbershop.galleryImages!.length,
+                          itemBuilder: (context, index) {
+                            return GestureDetector(
+                              onTap: () => _showImageGallery(barbershop, index + 1),
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 10),
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    barbershop.galleryImages![index],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                                    ),
+                                    loadingBuilder: (context, child, progress) {
+                                      if (progress == null) return child;
+                                      return const Center(child: CircularProgressIndicator());
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Adresse
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, color: Colors.grey[600]),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(barbershop.address ?? '', style: const TextStyle(fontSize: 14)),
+                              Text(
+                                barbershop.quartier ?? '',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(onPressed: _openMaps, child: const Text('Itinéraire')),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Téléphone
+                    Row(
+                      children: [
+                        Icon(Icons.phone, color: Colors.grey[600]),
+                        const SizedBox(width: 10),
+                        Text(barbershop.phone ?? 'Non disponible', style: const TextStyle(fontSize: 14)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: barbershop.phone != null ? _makePhoneCall : null,
+                          child: const Text('Appeler'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Horaires
+                    Row(
+                      children: [
+                        Icon(Icons.access_time, color: Colors.grey[600]),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${barbershop.openingTime ?? "08:00"} - ${barbershop.closingTime ?? "20:00"}',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Paiements
+                    if (barbershop.acceptsOnlinePayment) ...[
+                      Text(
+                        'Moyens de paiement',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildPaymentChip('Cash', Icons.money, Colors.green),
+                          if (barbershop.waveNumber != null && barbershop.waveNumber!.isNotEmpty)
+                            _buildPaymentChip('Wave', Icons.phone_android, Colors.blue),
+                          if (barbershop.orangeMoneyNumber != null &&
+                              barbershop.orangeMoneyNumber!.isNotEmpty)
+                            _buildPaymentChip('Orange Money', Icons.phone_android, Colors.orange),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+
+                    // Description
+                    if (barbershop.description != null &&
+                        barbershop.description!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'À propos',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(barbershop.description!, style: const TextStyle(fontSize: 14)),
+                    ],
+                  ],
+                ),
               ),
             ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: _isFavorite ? Colors.red : AppTheme.primaryColor,
-                  ),
-                  onPressed: _toggleFavorite,
+
+            // Tabs
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  labelColor: AppTheme.primaryColor,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: AppTheme.primaryColor,
+                  tabs: const [
+                    Tab(text: 'Services'),
+                    Tab(text: 'Barbiers'),
+                    Tab(text: 'Avis'),
+                  ],
                 ),
               ),
-              Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.share, color: AppTheme.primaryColor),
-                  onPressed: _shareBarbershop,
-                ),
+            ),
+          ],
+
+          // Contenu des tabs (pas de Sliver ici)
+          body: TabBarView(
+            children: [
+              _buildServicesTab(services),
+              _buildBarbersTab(),
+              _buildReviewsTab(),
+            ],
+          ),
+        ),
+
+        // Bouton Réserver
+        bottomNavigationBar: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
               ),
             ],
           ),
-
-          // Infos principales
-          SliverToBoxAdapter(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Status et rating
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: barbershop.isOpenNow
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: barbershop.isOpenNow ? Colors.green : Colors.red,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.schedule,
-                              size: 16,
-                              color: barbershop.isOpenNow ? Colors.green : Colors.red,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              barbershop.isOpenNow ? 'Ouvert' : 'Fermé',
-                              style: TextStyle(
-                                color: barbershop.isOpenNow ? Colors.green : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 20),
-                          const SizedBox(width: 5),
-                          Text(
-                            barbershop.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            ' (${barbershop.totalReviews} avis)',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Adresse
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, color: Colors.grey[600]),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              barbershop.address ?? '',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            Text(
-                              barbershop.quartier ?? '',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _openMaps,
-                        child: const Text('Itinéraire'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // Téléphone
-                  Row(
-                    children: [
-                      Icon(Icons.phone, color: Colors.grey[600]),
-                      const SizedBox(width: 10),
-                      Text(
-                        barbershop.phone ?? 'Non disponible',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: barbershop.phone != null ? _makePhoneCall : null,
-                        child: const Text('Appeler'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // Horaires
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, color: Colors.grey[600]),
-                      const SizedBox(width: 10),
-                      Text(
-                        '${barbershop.openingTime ?? "08:00"} - ${barbershop.closingTime ?? "20:00"}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Moyens de paiement
-                  if (barbershop.acceptsOnlinePayment) ...[
-                    Text(
-                      'Moyens de paiement',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.bold,
-                      ),
+          child: SafeArea(
+            child: ElevatedButton(
+              onPressed: _selectedService != null
+                  ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookingScreen(
+                      barbershop: barbershop,
+                      service: _selectedService!,
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _buildPaymentChip('Cash', Icons.money, Colors.green),
-                        if (barbershop.waveNumber != null)
-                          _buildPaymentChip('Wave', Icons.phone_android, Colors.blue),
-                        if (barbershop.orangeMoneyNumber != null)
-                          _buildPaymentChip('Orange Money', Icons.phone_android, Colors.orange),
-                      ],
-                    ),
-                  ],
-
-                  if (barbershop.description != null) ...[
-                    const SizedBox(height: 20),
-                    Text(
-                      'À propos',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      barbershop.description!,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ],
+                  ),
+                );
+              }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-            ),
-          ),
-
-          // Tabs
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.primaryColor,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: AppTheme.primaryColor,
-                tabs: const [
-                  Tab(text: 'Services'),
-                  Tab(text: 'Barbiers'),
-                  Tab(text: 'Avis'),
-                ],
-              ),
-            ),
-          ),
-
-          // Contenu des tabs
-          SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // Tab Services
-                _buildServicesTab(services),
-
-                // Tab Barbiers
-                _buildBarbersTab(),
-
-                // Tab Avis
-                _buildReviewsTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
-
-      // Bouton Réserver
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: _selectedService != null
-                ? () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BookingScreen(
-                    barbershop: barbershop,
-                    service: _selectedService!,
-                  ),
-                ),
-              );
-            }
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              _selectedService != null
-                  ? 'Réserver - ${_selectedService!.formattedPrice}'
-                  : 'Sélectionnez un service',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+              child: Text(
+                _selectedService != null
+                    ? 'Réserver - ${_selectedService!.formattedPrice}'
+                    : 'Sélectionnez un service',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
           ),
@@ -616,11 +680,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
           const SizedBox(width: 5),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -629,18 +689,14 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
 
   Widget _buildServicesTab(List<ServiceModel> services) {
     if (services.isEmpty) {
-      return const Center(
-        child: Text('Aucun service disponible'),
-      );
+      return const Center(child: Text('Aucun service disponible'));
     }
 
-    // Grouper les services par catégorie
+    // Groupement par catégorie
     final Map<String, List<ServiceModel>> groupedServices = {};
     for (var service in services) {
       final category = service.category ?? 'Autres';
-      if (!groupedServices.containsKey(category)) {
-        groupedServices[category] = [];
-      }
+      groupedServices.putIfAbsent(category, () => []);
       groupedServices[category]!.add(service);
     }
 
@@ -693,7 +749,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
         ),
         child: Row(
           children: [
-            // Icône ou image
+            // Picto
             Container(
               width: 50,
               height: 50,
@@ -701,10 +757,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                _getServiceIcon(service.category),
-                color: AppTheme.primaryColor,
-              ),
+              child: Icon(_getServiceIcon(service.category), color: AppTheme.primaryColor),
             ),
             const SizedBox(width: 15),
 
@@ -713,38 +766,22 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    service.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text(service.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   if (service.description != null) ...[
                     const SizedBox(height: 5),
                     Text(
                       service.description!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                   const SizedBox(height: 5),
                   Row(
                     children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: Colors.grey[600],
-                      ),
+                      Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
                       const SizedBox(width: 5),
                       Text(
                         service.formattedDuration,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -767,21 +804,12 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                 if (isSelected)
                   Container(
                     margin: const EdgeInsets.only(top: 5),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text(
-                      'Sélectionné',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: const Text('Sélectionné', style: TextStyle(fontSize: 10, color: Colors.white)),
                   ),
               ],
             ),
@@ -815,9 +843,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     final barbers = provider.barbers;
 
     if (provider.isLoadingBarbers) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (barbers.isEmpty) {
@@ -825,19 +851,9 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.person_outline,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.person_outline, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'Aucun barbier disponible',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
+            Text('Aucun barbier disponible', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           ],
         ),
       );
@@ -867,13 +883,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: InkWell(
         onTap: isAvailable
@@ -901,18 +911,11 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                   color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                   image: photoUrl != null
-                      ? DecorationImage(
-                    image: NetworkImage(photoUrl),
-                    fit: BoxFit.cover,
-                  )
+                      ? DecorationImage(image: NetworkImage(photoUrl), fit: BoxFit.cover)
                       : null,
                 ),
                 child: photoUrl == null
-                    ? Icon(
-                  Icons.person,
-                  size: 35,
-                  color: AppTheme.primaryColor,
-                )
+                    ? Icon(Icons.person, size: 35, color: AppTheme.primaryColor)
                     : null,
               ),
               const SizedBox(width: 15),
@@ -924,66 +927,44 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                   children: [
                     Row(
                       children: [
-                        Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
                         if (!isAvailable)
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
                               'Indisponible',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 5),
 
-                    // Experience
+                    // Expérience
                     if (experience > 0)
-                      Text(
-                        '$experience ans d\'expérience',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
+                      Text('$experience ans d\'expérience',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
 
                     // Rating
                     if (rating > 0)
                       Row(
                         children: [
-                          ...List.generate(5, (index) {
-                            return Icon(
+                          ...List.generate(
+                            5,
+                                (index) => Icon(
                               index < rating.floor() ? Icons.star : Icons.star_border,
                               size: 16,
                               color: Colors.amber,
-                            );
-                          }),
-                          const SizedBox(width: 5),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
                             ),
                           ),
+                          const SizedBox(width: 5),
+                          Text(rating.toStringAsFixed(1),
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                         ],
                       ),
 
@@ -995,20 +976,14 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                         runSpacing: 5,
                         children: specialties.take(3).map((specialty) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               specialty.toString(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primaryColor,
-                              ),
+                              style: TextStyle(fontSize: 10, color: AppTheme.primaryColor),
                             ),
                           );
                         }).toList(),
@@ -1022,23 +997,14 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                         bio,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       ),
                     ],
                   ],
                 ),
               ),
 
-              // Bouton sélectionner
-              if (isAvailable)
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey[400],
-                ),
+              if (isAvailable) Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
             ],
           ),
         ),
@@ -1059,15 +1025,10 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
           children: [
             Icon(Icons.rate_review_outlined, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'Aucun avis pour le moment',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
+            Text('Aucun avis pour le moment', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
             const SizedBox(height: 8),
-            Text(
-              'Soyez le premier à donner votre avis !',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-            ),
+            Text('Soyez le premier à donner votre avis !',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500])),
           ],
         ),
       );
@@ -1098,13 +1059,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1119,10 +1074,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                   color: AppTheme.primaryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                   image: clientAvatar != null
-                      ? DecorationImage(
-                    image: NetworkImage(clientAvatar),
-                    fit: BoxFit.cover,
-                  )
+                      ? DecorationImage(image: NetworkImage(clientAvatar), fit: BoxFit.cover)
                       : null,
                 ),
                 child: clientAvatar == null
@@ -1136,33 +1088,22 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      clientName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      formattedDate,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+                    Text(clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(formattedDate, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                   ],
                 ),
               ),
 
               // Rating
               Row(
-                children: List.generate(5, (index) {
-                  return Icon(
+                children: List.generate(
+                  5,
+                      (index) => Icon(
                     index < rating ? Icons.star : Icons.star_border,
                     size: 16,
                     color: Colors.amber,
-                  );
-                }),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1175,22 +1116,13 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                'Barbier: $barberName',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
+              child: Text('Barbier: $barberName', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
             ),
           ],
 
           if (comment.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(
-              comment,
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(comment, style: const TextStyle(fontSize: 14)),
           ],
         ],
       ),
@@ -1210,19 +1142,10 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(
-      BuildContext context,
-      double shrinkOffset,
-      bool overlapsContent,
-      ) {
-    return Container(
-      color: Colors.white,
-      child: _tabBar,
-    );
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(color: Colors.white, child: _tabBar);
   }
 
   @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
-  }
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) => false;
 }

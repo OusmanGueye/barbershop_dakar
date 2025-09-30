@@ -6,6 +6,7 @@ import '../../../config/theme.dart';
 import '../../../config/supabase_config.dart';
 import '../../../providers/auth_provider.dart';
 import '../../auth/login_screen.dart';
+import 'package:supabase/supabase.dart' as supa;
 
 class ClientProfileScreen extends StatefulWidget {
   const ClientProfileScreen({super.key});
@@ -52,42 +53,79 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final supabase = SupabaseConfig.supabase;
+    final user = supabase.auth.currentUser;
 
-    // Upload image if selected
-    String? avatarUrl;
-    if (_imageFile != null) {
-      final fileName = '${SupabaseConfig.currentUser!.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final bytes = await _imageFile!.readAsBytes();
-
-      try {
-        await SupabaseConfig.supabase.storage
-            .from('avatars')
-            .uploadBinary(fileName, bytes);
-
-        avatarUrl = SupabaseConfig.supabase.storage
-            .from('avatars')
-            .getPublicUrl(fileName);
-      } catch (e) {
-        print('Erreur upload image: $e');
-      }
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session expirée. Veuillez vous reconnecter.')),
+      );
+      return;
     }
 
-    final success = await authProvider.updateProfile({
-      'full_name': _nameController.text,
-      'preferred_language': _selectedLanguage,
-      if (avatarUrl != null) 'avatar_url': avatarUrl,
-    });
+    String? avatarUrl;
 
-    if (success) {
-      setState(() => _isEditing = false);
+    try {
+      // 1) Upload avatar si une image a été choisie
+      if (_imageFile != null) {
+        final uid = user.id;
+        final ext = _imageFile!.path.split('.').last.toLowerCase();
+        final mime = (ext == 'png')
+            ? 'image/png'
+            : (ext == 'webp')
+            ? 'image/webp'
+            : 'image/jpeg'; // défaut
+
+        final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final path = '$uid/$fileName'; // ⬅️ IMPORTANT: premier segment = uid/
+        final bytes = await _imageFile!.readAsBytes();
+
+        await supabase.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: supa.FileOptions(          // ⬅️ utilise l’alias supa
+            upsert: true,                         // remplace l’ancien avatar
+            contentType: mime,
+            cacheControl: '3600',
+          ),
+        );
+
+        // Bucket public → URL publique. (Si privé: createSignedUrl)
+        avatarUrl = supabase.storage.from('avatars').getPublicUrl(path);
+      }
+
+      // 2) Mise à jour du profil applicatif
+      final payload = {
+        'full_name': _nameController.text.trim(),
+        'preferred_language': _selectedLanguage,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+      };
+
+      final success = await authProvider.updateProfile(payload);
+
+      if (!mounted) return;
+      if (success) {
+        setState(() => _isEditing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil mis à jour'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Échec de mise à jour du profil')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil mis à jour'),
-          backgroundColor: AppTheme.successColor,
-        ),
+        SnackBar(content: Text('Erreur : $e')),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

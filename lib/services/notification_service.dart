@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -35,6 +38,8 @@ class NotificationService {
         settings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
+
+      await requestPermissions();
 
       _isInitialized = true;
       print('NotificationService initialisé');
@@ -140,7 +145,16 @@ class NotificationService {
         priority: Priority.high,
       );
 
-      const details = NotificationDetails(android: androidDetails);
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails, // ⬅️ ajoute ceci
+      );
 
       await _notifications.zonedSchedule(
         id,
@@ -149,14 +163,13 @@ class NotificationService {
         tz.TZDateTime.from(scheduledDate, tz.local),
         details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        // ⬇️ Ces deux paramètres sont désormais les bons (optionnels)
-        // matchDateTimeComponents: DateTimeComponents.dateAndTime, // seulement si tu veux des répétitions
         payload: payload,
       );
     } catch (e) {
       print('Erreur programmation rappel: $e');
     }
   }
+
 
 
   // Programmer les rappels client
@@ -224,4 +237,85 @@ class NotificationService {
       return false;
     }
   }
+
+  static Future<void> runSelfTest() async {
+    await initialize();
+
+    // Notif immédiate
+    await showNotification(
+      title: '🔔 Test immédiat',
+      body: 'Les notifications locales fonctionnent ✅',
+      payload: 'test:immediate',
+    );
+
+    // Notif +10s
+    final in10s = DateTime.now().add(const Duration(seconds: 10));
+    await _notifications.zonedSchedule(
+      990001,
+      '⏱️ Test +10s',
+      'Notification planifiée il y a 10 secondes',
+      tz.TZDateTime.from(in10s, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'reminders',
+          'Rappels',
+          channelDescription: 'Rappels de test',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: 'test:in10s',
+    );
+
+    // Notif +1 min
+    final in1min = DateTime.now().add(const Duration(minutes: 1));
+    await _notifications.zonedSchedule(
+      990002,
+      '⏳ Test +1 min',
+      'Notification planifiée il y a 1 minute',
+      tz.TZDateTime.from(in1min, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'reminders',
+          'Rappels',
+          channelDescription: 'Rappels de test',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: 'test:in1min',
+    );
+
+    print('✅ Tests lancés : immédiat, +10s, +1min. Tu peux fermer l’app et observer.');
+  }
+
+
+  static Future<void> requestPermissions() async {
+    // iOS : rien à faire, c’est géré par DarwinInitializationSettings
+    if (Platform.isAndroid) {
+      final notif = await Permission.notification.request();
+      await Permission.scheduleExactAlarm.request(); // optionnel
+      if (!notif.isGranted && !notif.isLimited) {
+        print('⚠️ Permission notifications refusée (Android)');
+      } else {
+        print('✅ Permission notifications OK (Android)');
+      }
+    }
+  }
+
+
+
+
 }
