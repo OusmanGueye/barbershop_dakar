@@ -128,27 +128,49 @@ class OwnerService {
       final barbershopId = await getOwnerBarbershopId();
       if (barbershopId == null) return [];
 
+      // Charger les barbiers sans le join
       final response = await _supabase
           .from('barbers')
-          .select('''
-            *,
-            user:users!user_id(*)
-          ''')
+          .select()
           .eq('barbershop_id', barbershopId)
           .order('created_at', ascending: false);
 
-      // Ajouter les stats de chaque barbier
-      final barbersWithStats = <Map<String, dynamic>>[];
+      // Ajouter les stats et avatars pour chaque barbier
+      final barbersWithData = <Map<String, dynamic>>[];
 
-      for (var barber in (response as List)) {
+      for (var barber in response) {
+        final barberData = Map<String, dynamic>.from(barber);
+
+        // Charger l'avatar depuis users
+        final userId = barber['user_id'];
+        if (userId != null) {
+          try {
+            final userResponse = await _supabase
+                .from('users')
+                .select('avatar_url, full_name')
+                .eq('id', userId)
+                .maybeSingle();
+
+            if (userResponse != null) {
+              barberData['avatar_url'] = userResponse['avatar_url'];
+              // Optionnel : mettre à jour le nom si nécessaire
+              if (userResponse['full_name'] != null && barberData['display_name'] == null) {
+                barberData['display_name'] = userResponse['full_name'];
+              }
+            }
+          } catch (e) {
+            print('Erreur chargement avatar pour user_id $userId: $e');
+          }
+        }
+
+        // Charger les stats
         final barberStats = await getBarberStats(barber['id']);
-        barbersWithStats.add({
-          ...barber,
-          'stats': barberStats,
-        });
+        barberData['stats'] = barberStats;
+
+        barbersWithData.add(barberData);
       }
 
-      return barbersWithStats;
+      return barbersWithData;
     } catch (e) {
       print('Erreur getBarbers: $e');
       return [];

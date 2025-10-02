@@ -1,3 +1,5 @@
+// screens/client/home/client_home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/theme.dart';
@@ -251,32 +253,53 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
 
-              // Filtres par quartier
+              // Filtres par quartier populaires
               SliverToBoxAdapter(
-                child: Container(
-                  height: 50,
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: AppConstants.dakarQuartiers.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return _buildFilterChip(
-                          'Tous',
-                          barbershopProvider.selectedQuartier == null,
-                              () => barbershopProvider.filterByQuartier(null),
-                        );
-                      }
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 50,
+                      margin: const EdgeInsets.only(top: 10, bottom: 5),
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: AppConstants.popularQuartiers.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return _buildFilterChip(
+                              'Tous',
+                              barbershopProvider.selectedQuartier == null,
+                                  () => barbershopProvider.filterByQuartier(null),
+                              Icons.all_inclusive,
+                            );
+                          }
 
-                      final quartier = AppConstants.dakarQuartiers[index - 1];
-                      return _buildFilterChip(
-                        quartier,
-                        barbershopProvider.selectedQuartier == quartier,
-                            () => barbershopProvider.filterByQuartier(quartier),
-                      );
-                    },
-                  ),
+                          final quartier = AppConstants.popularQuartiers[index - 1];
+                          return _buildFilterChip(
+                            quartier,
+                            barbershopProvider.selectedQuartier == quartier,
+                                () => barbershopProvider.filterByQuartier(quartier),
+                            null,
+                          );
+                        },
+                      ),
+                    ),
+
+                    // Bouton voir tous les quartiers
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.expand_more, size: 18),
+                        label: const Text('Voir tous les quartiers'),
+                        onPressed: () => _showAllQuartiersModal(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -445,10 +468,11 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap, IconData? icon) {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: FilterChip(
+        avatar: icon != null ? Icon(icon, size: 18) : null,
         label: Text(label),
         selected: isSelected,
         onSelected: (_) => onTap(),
@@ -458,6 +482,7 @@ class _HomeTabState extends State<HomeTab> {
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : AppTheme.primaryColor,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -465,6 +490,231 @@ class _HomeTabState extends State<HomeTab> {
             color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
           ),
         ),
+      ),
+    );
+  }
+
+  void _showAllQuartiersModal() {
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final barbershopProvider = context.read<BarbershopProvider>();
+
+          // Filtrer les quartiers selon la recherche
+          Map<String, List<String>> filteredZones = {};
+
+          if (searchQuery.isEmpty) {
+            filteredZones = AppConstants.dakarZones;
+          } else {
+            AppConstants.dakarZones.forEach((zone, quartiers) {
+              final filtered = quartiers
+                  .where((q) => q.toLowerCase().contains(searchQuery.toLowerCase()))
+                  .toList();
+              if (filtered.isNotEmpty) {
+                filteredZones[zone] = filtered;
+              }
+            });
+          }
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Filtrer par quartier',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${AppConstants.dakarQuartiers.length} quartiers disponibles',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+
+                // Barre de recherche
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un quartier...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setModalState(() {
+                          searchQuery = '';
+                        });
+                      },
+                    )
+                        : null,
+                  ),
+                  onChanged: (value) {
+                    setModalState(() {
+                      searchQuery = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Bouton "Tous les quartiers"
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      barbershopProvider.filterByQuartier(null);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: barbershopProvider.selectedQuartier == null
+                          ? AppTheme.primaryColor
+                          : Colors.grey[200],
+                      foregroundColor: barbershopProvider.selectedQuartier == null
+                          ? Colors.white
+                          : Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Tous les quartiers'),
+                  ),
+                ),
+
+                const Divider(),
+
+                // Liste des quartiers
+                Expanded(
+                  child: filteredZones.isEmpty
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 50, color: Colors.grey[400]),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Aucun quartier trouvé',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                      : ListView.builder(
+                    itemCount: filteredZones.length,
+                    itemBuilder: (context, index) {
+                      final zone = filteredZones.keys.elementAt(index);
+                      final quartiers = filteredZones[zone]!;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 4,
+                                  height: 20,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                Text(
+                                  zone,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...quartiers.map((quartier) {
+                            final isSelected = barbershopProvider.selectedQuartier == quartier;
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                quartier,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              leading: Icon(
+                                isSelected ? Icons.check_circle : Icons.circle_outlined,
+                                color: isSelected ? AppTheme.primaryColor : Colors.grey,
+                                size: 20,
+                              ),
+                              trailing: isSelected
+                                  ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'Sélectionné',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                                  : null,
+                              onTap: () {
+                                barbershopProvider.filterByQuartier(quartier);
+                                Navigator.pop(context);
+                              },
+                            );
+                          }).toList(),
+                          if (index < filteredZones.length - 1)
+                            const Divider(),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

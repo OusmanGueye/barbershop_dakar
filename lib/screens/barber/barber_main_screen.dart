@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import 'barber_dashboard.dart';
+import 'barber_profile_screen.dart';
 import 'barber_schedule_screen.dart';
 import 'barber_clients_screen.dart';
 import 'barber_earnings_screen.dart';
@@ -22,6 +23,7 @@ class _BarberMainScreenState extends State<BarberMainScreen> {
     const BarberScheduleScreen(),
     const BarberClientsScreen(),
     const BarberEarningsScreen(),
+    const BarberProfileScreen(), // NOUVEAU
   ];
 
   @override
@@ -56,6 +58,10 @@ class _BarberMainScreenState extends State<BarberMainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_wallet),
             label: 'Revenus',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person), // NOUVEAU
+            label: 'Profil',
           ),
         ],
       ),

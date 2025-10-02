@@ -39,6 +39,7 @@ class _BookingScreenState extends State<BookingScreen> {
   // Charger les barbiers du barbershop
   Future<void> _loadBarbers() async {
     try {
+      // Charger les barbiers
       final response = await SupabaseConfig.supabase
           .from('barbers')
           .select()
@@ -46,8 +47,32 @@ class _BookingScreenState extends State<BookingScreen> {
           .eq('invite_status', 'accepted')
           .eq('is_available', true);
 
+      // Charger les avatars séparément pour chaque barbier
+      final barbersWithAvatars = <Map<String, dynamic>>[];
+
+      for (var barber in response) {
+        final barberData = Map<String, dynamic>.from(barber);
+        final userId = barber['user_id'];
+
+        if (userId != null) {
+          try {
+            final userResponse = await SupabaseConfig.supabase
+                .from('users')
+                .select('avatar_url')
+                .eq('id', userId)
+                .maybeSingle();
+
+            barberData['avatar_url'] = userResponse?['avatar_url'];
+          } catch (e) {
+            print('Erreur chargement avatar pour $userId: $e');
+          }
+        }
+
+        barbersWithAvatars.add(barberData);
+      }
+
       setState(() {
-        _barbers = List<Map<String, dynamic>>.from(response);
+        _barbers = barbersWithAvatars;
         _selectedBarberId = 'any';
       });
 
@@ -542,6 +567,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         name: barber['display_name'] ?? 'Barbier',
                         subtitle: barber['bio'] ?? 'Barbier professionnel',
                         rating: (barber['rating'] ?? 0.0).toDouble(),
+                        avatarUrl: barber['avatar_url'], // ⬅️ Direct, pas de nested
                       ),
                     )).toList(),
                 ],
@@ -777,6 +803,7 @@ class _BookingScreenState extends State<BookingScreen> {
     double? rating,
     IconData? icon,
     bool isRecommended = false,
+    String? avatarUrl,
   }) {
     final isSelected = _selectedBarberId == id;
 
@@ -804,6 +831,7 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
         child: Row(
           children: [
+            // Photo du barbier ou icône par défaut
             Container(
               width: 50,
               height: 50,
@@ -813,7 +841,34 @@ class _BookingScreenState extends State<BookingScreen> {
                     : AppTheme.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? ClipOval(
+                child: Image.network(
+                  avatarUrl,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      icon ?? Icons.person,
+                      color: AppTheme.primaryColor,
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 2,
+                      ),
+                    );
+                  },
+                ),
+              )
+                  : Icon(
                 icon ?? Icons.person,
                 color: AppTheme.primaryColor,
               ),
@@ -825,11 +880,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isRecommended) ...[
@@ -902,6 +960,7 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     );
   }
+
 
   void _showConfirmationDialog() async {
     // Si "Premier disponible", trouver un barbier

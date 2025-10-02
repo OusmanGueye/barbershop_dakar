@@ -875,7 +875,10 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
     final displayName = barber['display_name'] ?? 'Barbier';
     final experience = barber['experience_years'] ?? 0;
     final specialties = barber['specialties'] as List? ?? [];
-    final photoUrl = barber['photo_url'];
+
+    // ✅ CHANGEMENT : Utiliser photo_url qui contient maintenant avatar_url
+    final photoUrl = barber['photo_url'] ?? barber['avatar_url'];
+
     final bio = barber['bio'] ?? '';
 
     return Container(
@@ -903,24 +906,53 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
           padding: const EdgeInsets.all(15),
           child: Row(
             children: [
-              // Photo
+              // ✅ Photo avec meilleure gestion
               Container(
                 width: 70,
                 height: 70,
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  image: photoUrl != null
-                      ? DecorationImage(image: NetworkImage(photoUrl), fit: BoxFit.cover)
-                      : null,
                 ),
-                child: photoUrl == null
-                    ? Icon(Icons.person, size: 35, color: AppTheme.primaryColor)
-                    : null,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: photoUrl != null && photoUrl.isNotEmpty
+                      ? Image.network(
+                    photoUrl,
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                          Icons.person,
+                          size: 35,
+                          color: AppTheme.primaryColor
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 2,
+                          color: AppTheme.primaryColor,
+                        ),
+                      );
+                    },
+                  )
+                      : Icon(
+                      Icons.person,
+                      size: 35,
+                      color: AppTheme.primaryColor
+                  ),
+                ),
               ),
               const SizedBox(width: 15),
 
-              // Infos
+              // Infos (reste identique)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

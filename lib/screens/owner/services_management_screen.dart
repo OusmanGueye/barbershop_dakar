@@ -1,8 +1,12 @@
+// screens/owner/services_management_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../config/theme.dart';
 import '../../providers/owner_provider.dart';
+import 'add_service_screen.dart';
+import 'edit_service_screen.dart';
 
 class ServicesManagementScreen extends StatefulWidget {
   const ServicesManagementScreen({super.key});
@@ -46,7 +50,16 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.add_circle),
-            onPressed: () => _showAddServiceDialog(),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddServiceScreen(),
+                ),
+              ).then((_) {
+                _loadServices();
+              });
+            },
             color: AppTheme.primaryColor,
           ),
         ],
@@ -95,6 +108,8 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
                 _buildCategoryChip('Barbe', 'barbe', Icons.face),
                 _buildCategoryChip('Soins', 'soins', Icons.spa),
                 _buildCategoryChip('Coloration', 'coloration', Icons.palette),
+                _buildCategoryChip('Locks', 'locks', Icons.grain),
+                _buildCategoryChip('Enfant', 'enfant', Icons.child_care),
                 _buildCategoryChip('Autres', 'autres', Icons.auto_awesome),
               ],
             ),
@@ -118,6 +133,21 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddServiceScreen(),
+            ),
+          ).then((_) {
+            _loadServices();
+          });
+        },
+        backgroundColor: AppTheme.primaryColor,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Nouveau service', style: TextStyle(color: Colors.white,),),
       ),
     );
   }
@@ -200,13 +230,23 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
           const SizedBox(height: 20),
           if (_selectedCategory == 'all')
             ElevatedButton.icon(
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, color: Colors.white),
               label: const Text('Ajouter un service'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
               ),
-              onPressed: () => _showAddServiceDialog(),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddServiceScreen(),
+                  ),
+                ).then((_) {
+                  _loadServices();
+                });
+              },
             ),
         ],
       ),
@@ -240,13 +280,13 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
           height: 45,
           decoration: BoxDecoration(
             color: isActive
-                ? AppTheme.primaryColor.withOpacity(0.1)
+                ? _getCategoryColor(service['category']).withOpacity(0.1)
                 : Colors.grey.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             _getServiceIcon(service['category']),
-            color: isActive ? AppTheme.primaryColor : Colors.grey,
+            color: isActive ? _getCategoryColor(service['category']) : Colors.grey,
             size: 24,
           ),
         ),
@@ -368,7 +408,7 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
                       Icons.category,
                       'Catégorie',
                       _formatCategory(service['category'] ?? 'autres'),
-                      Colors.purple,
+                      _getCategoryColor(service['category']),
                     ),
                     _buildInfoCard(
                       Icons.timer,
@@ -396,7 +436,16 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryColor,
                         ),
-                        onPressed: () => _showEditServiceDialog(service),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditServiceScreen(service: service),
+                            ),
+                          ).then((_) {
+                            _loadServices();
+                          });
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -448,7 +497,21 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
       case 'barbe': return Icons.face;
       case 'soins': return Icons.spa;
       case 'coloration': return Icons.palette;
+      case 'locks': return Icons.grain;
+      case 'enfant': return Icons.child_care;
       default: return Icons.auto_awesome;
+    }
+  }
+
+  Color _getCategoryColor(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'coupe': return Colors.blue;
+      case 'barbe': return Colors.brown;
+      case 'soins': return Colors.green;
+      case 'coloration': return Colors.purple;
+      case 'locks': return Colors.orange;
+      case 'enfant': return Colors.pink;
+      default: return Colors.grey;
     }
   }
 
@@ -458,6 +521,8 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
       case 'barbe': return 'Barbe';
       case 'soins': return 'Soins';
       case 'coloration': return 'Coloration';
+      case 'locks': return 'Locks/Tresses';
+      case 'enfant': return 'Enfant';
       default: return 'Autres';
     }
   }
@@ -466,253 +531,6 @@ class _ServicesManagementScreenState extends State<ServicesManagementScreen> {
     if (services.isEmpty) return 0;
     final total = services.fold<int>(0, (sum, s) => sum + (s['price'] ?? 0) as int);
     return (total / services.length).round();
-  }
-
-  void _showAddServiceDialog() {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
-    final durationController = TextEditingController(text: '30');
-    final descriptionController = TextEditingController();
-    String selectedCategory = 'coupe';
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(  // Utiliser dialogContext
-        title: const Text('Ajouter un service'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom du service *',
-                    hintText: 'Ex: Coupe simple',
-                    prefixIcon: Icon(Icons.content_cut),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Nom requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Prix (FCFA) *',
-                    hintText: 'Ex: 3000',
-                    prefixIcon: Icon(Icons.attach_money),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Prix requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: durationController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Durée (minutes) *',
-                    hintText: 'Ex: 30',
-                    prefixIcon: Icon(Icons.timer),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Durée requise' : null,
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Catégorie',
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'coupe', child: Text('Coupe')),
-                    DropdownMenuItem(value: 'barbe', child: Text('Barbe')),
-                    DropdownMenuItem(value: 'soins', child: Text('Soins')),
-                    DropdownMenuItem(value: 'coloration', child: Text('Coloration')),
-                    DropdownMenuItem(value: 'autres', child: Text('Autres')),
-                  ],
-                  onChanged: (val) => selectedCategory = val ?? 'coupe',
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: descriptionController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (optionnel)',
-                    hintText: 'Description du service',
-                    prefixIcon: Icon(Icons.description),
-                    alignLabelWithHint: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),  // Utiliser dialogContext
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState?.validate() ?? false) {
-                // Fermer le dialogue AVANT l'appel async
-                Navigator.pop(dialogContext);
-
-                // Maintenant faire l'appel async
-                final success = await context.read<OwnerProvider>().addService({
-                  'name': nameController.text.trim(),
-                  'price': int.parse(priceController.text),
-                  'duration': int.tryParse(durationController.text) ?? 30,
-                  'category': selectedCategory,
-                  'description': descriptionController.text.trim().isNotEmpty
-                      ? descriptionController.text.trim()
-                      : null,
-                  'is_active': true,
-                  'barbershop_id': context.read<OwnerProvider>().barbershopInfo?['id'],
-                });
-
-                // Vérifier que le widget est toujours monté
-                if (!mounted) return;
-
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Service ajouté avec succès'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Erreur lors de l\'ajout'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-            child: const Text('Ajouter'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditServiceDialog(Map<String, dynamic> service) {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: service['name']);
-    final priceController = TextEditingController(text: service['price'].toString());
-    final durationController = TextEditingController(text: service['duration'].toString());
-    final descriptionController = TextEditingController(text: service['description'] ?? '');
-    String selectedCategory = service['category'] ?? 'coupe';
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modifier le service'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom du service',
-                    prefixIcon: Icon(Icons.content_cut),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Nom requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Prix (FCFA)',
-                    prefixIcon: Icon(Icons.attach_money),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Prix requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: durationController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Durée (minutes)',
-                    prefixIcon: Icon(Icons.timer),
-                  ),
-                  validator: (val) => val?.isEmpty ?? true ? 'Durée requise' : null,
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Catégorie',
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'coupe', child: Text('Coupe')),
-                    DropdownMenuItem(value: 'barbe', child: Text('Barbe')),
-                    DropdownMenuItem(value: 'soins', child: Text('Soins')),
-                    DropdownMenuItem(value: 'coloration', child: Text('Coloration')),
-                    DropdownMenuItem(value: 'autres', child: Text('Autres')),
-                  ],
-                  onChanged: (val) => selectedCategory = val ?? 'coupe',
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: descriptionController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    prefixIcon: Icon(Icons.description),
-                    alignLabelWithHint: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(context);
-
-                final success = await context.read<OwnerProvider>().updateService(
-                  service['id'],
-                  {
-                    'name': nameController.text.trim(),
-                    'price': int.parse(priceController.text),
-                    'duration': int.parse(durationController.text),
-                    'category': selectedCategory,
-                    'description': descriptionController.text.trim(),
-                  },
-                );
-
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Service modifié'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _confirmDelete(Map<String, dynamic> service, OwnerProvider provider) {

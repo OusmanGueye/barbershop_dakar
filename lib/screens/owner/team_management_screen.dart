@@ -1,3 +1,5 @@
+// screens/owner/team_management_screen.dart
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme.dart';
 import '../../providers/owner_provider.dart';
+import 'add_barber_screen.dart';
+import 'edit_barber_screen.dart';
 
 class TeamManagementScreen extends StatefulWidget {
   const TeamManagementScreen({super.key});
@@ -84,7 +88,16 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.person_add),
-            onPressed: () => _showAddBarberDialog(),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddBarberScreen(),
+                ),
+              ).then((_) {
+                _loadData();
+              });
+            },
             color: AppTheme.primaryColor,
           ),
         ],
@@ -185,6 +198,21 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddBarberScreen(),
+            ),
+          ).then((_) {
+            _loadData();
+          });
+        },
+        backgroundColor: AppTheme.primaryColor,
+        icon: const Icon(Icons.person_add, color: Colors.white,),
+        label: const Text('Nouveau barbier', style: TextStyle(color: Colors.white,),),
+      ),
     );
   }
 
@@ -244,13 +272,23 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           const SizedBox(height: 20),
           if (_searchQuery.isEmpty)
             ElevatedButton.icon(
-              icon: const Icon(Icons.person_add),
+              icon: const Icon(Icons.person_add, color: Colors.white),
               label: const Text('Ajouter un barbier'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
               ),
-              onPressed: () => _showAddBarberDialog(),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddBarberScreen(),
+                  ),
+                ).then((_) {
+                  _loadData();
+                });
+              },
             ),
         ],
       ),
@@ -264,6 +302,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     final monthRevenue = stats['monthRevenue'] ?? 0;
     final monthClients = stats['monthClients'] ?? 0;
     final commission = (monthRevenue * (barber['commission_rate'] ?? 30) / 100).round();
+    final avatarUrl = barber['avatar_url'] ?? barber['photo_url'];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -290,14 +329,19 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             CircleAvatar(
               radius: 25,
               backgroundColor: isAvailable ? AppTheme.primaryColor : Colors.grey,
-              child: Text(
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Text(
                 (barber['display_name'] ?? 'B')[0].toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
-              ),
+              )
+                  : null,
             ),
             Positioned(
               bottom: 0,
@@ -446,7 +490,16 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                           foregroundColor: AppTheme.primaryColor,
                           side: BorderSide(color: AppTheme.primaryColor),
                         ),
-                        onPressed: () => _showEditBarberDialog(barber),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditBarberScreen(barber: barber),
+                            ),
+                          ).then((_) {
+                            _loadData(); // Rafraîchir après modification
+                          });
+                        },
                       ),
                     ),
                   ],
@@ -613,152 +666,6 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     );
   }
 
-  void _showAddBarberDialog() {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final experienceController = TextEditingController(text: '0');
-    final commissionController = TextEditingController(text: '30');
-    final specialtiesController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ajouter un barbier'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom complet *',
-                    prefixIcon: Icon(Icons.person),
-                    hintText: 'Ex: Mamadou Diallo',
-                  ),
-                  validator: (value) =>
-                  value?.isEmpty ?? true ? 'Nom requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Téléphone *',
-                    prefixIcon: Icon(Icons.phone),
-                    prefixText: '+221 ',
-                    hintText: '77 123 45 67',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 9,
-                  validator: (value) =>
-                  value?.isEmpty ?? true ? 'Téléphone requis' : null,
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: specialtiesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Spécialités',
-                    prefixIcon: Icon(Icons.cut),
-                    hintText: 'Ex: Dégradé, Afro, Barbe',
-                  ),
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: experienceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Expérience (ans)',
-                          prefixIcon: Icon(Icons.work),
-                        ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    Expanded(
-                      child: TextFormField(
-                        controller: commissionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Commission (%)',
-                          prefixIcon: Icon(Icons.percent),
-                        ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(context);
-
-                // Afficher un loader
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-
-                // Générer le code d'invitation
-                final inviteCode = _generateInviteCode();
-
-                final success = await context.read<OwnerProvider>().addBarberWithInvite({
-                  'display_name': nameController.text,
-                  'phone': '221${phoneController.text}',
-                  'specialties': specialtiesController.text.isNotEmpty
-                      ? specialtiesController.text
-                      : 'Toutes coupes',
-                  'experience_years': int.tryParse(experienceController.text) ?? 0,
-                  'commission_rate': int.tryParse(commissionController.text) ?? 30,
-                  'is_available': true,
-                  'invite_code': inviteCode,
-                  'invite_status': 'pending',
-                  'total_cuts': 0,
-                  'rating': 0.0,
-                });
-
-                Navigator.pop(context); // Fermer le loader
-
-                if (success) {
-                  _showInviteCodeDialog(
-                    nameController.text,
-                    phoneController.text,
-                    inviteCode,
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Erreur lors de l\'ajout'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-            ),
-            child: const Text('Créer et Inviter'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showEditBarberDialog(Map<String, dynamic> barber) {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: barber['display_name']);
@@ -776,6 +683,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           ? (barber['specialties'] as List).join(', ')
           : barber['specialties']?.toString() ?? '',
     );
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -893,7 +801,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     final message = '''
 Bonjour $name,
 
-Vous êtes invité à rejoindre notre équipe de barbiers sur Barbershop Dakar.
+Vous êtes invité à rejoindre notre équipe sur BarberGo.
 
 📱 Téléchargez l'application
 🔑 Utilisez le code: $code
@@ -914,11 +822,7 @@ ${context.read<OwnerProvider>().barbershopInfo?['name'] ?? 'Barbershop'}
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue, Colors.blue[700]!],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: AppTheme.primaryGradient,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Column(

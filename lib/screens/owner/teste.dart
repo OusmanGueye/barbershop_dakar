@@ -159,188 +159,188 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Informations générales
-              _buildSettingSection(
-                'Informations générales',
-                [
-                  _buildTextField(
-                    'Nom du barbershop',
-                    _editedData['name'],
-                    Icons.store,
-                        (value) => _updateField('name', value),
-                    validator: (value) => value?.isEmpty ?? true ? 'Nom requis' : null,
-                  ),
-                  _buildTextField(
-                    'Téléphone',
-                    _editedData['phone'],
-                    Icons.phone,
-                        (value) => _updateField('phone', value),
-                    keyboardType: TextInputType.phone,
-                    validator: (value) => value?.isEmpty ?? true ? 'Téléphone requis' : null,
-                  ),
-                ],
-              ),
-
-              // Localisation
-              _buildLocationSection(),
-
-              // Section Images
-              _buildImagesSection(),
-
-              // Horaires
-              _buildSettingSection(
-                'Horaires d\'ouverture',
-                [
-                  _buildTimeSelector(
-                    'Heure d\'ouverture',
-                    _editedData['opening_time'],
-                    Icons.access_time,
-                        (time) => _updateField('opening_time', time),
-                  ),
-                  _buildTimeSelector(
-                    'Heure de fermeture',
-                    _editedData['closing_time'],
-                    Icons.access_time_filled,
-                        (time) => _updateField('closing_time', time),
-                  ),
-                  _buildWorkingDaysSelector(),
-                ],
-              ),
-
-              // Paiements
-              _buildSettingSection(
-                'Méthodes de paiement',
-                [
-                  SwitchListTile(
-                    title: const Text('Paiements en ligne'),
-                    subtitle: const Text('Activer Wave et Orange Money'),
-                    value: _editedData['accepts_online_payment'] ?? false,
-                    onChanged: (val) => _updateField('accepts_online_payment', val),
-                    activeColor: AppTheme.primaryColor,
-                  ),
-                  if (_editedData['accepts_online_payment'] == true) ...[
-                    _buildTextField(
-                      'Numéro Wave',
-                      _editedData['wave_number'],
-                      Icons.phone_android,
-                          (value) => _updateField('wave_number', value),
-                      keyboardType: TextInputType.phone,
-                      prefixText: '+221 ',
-                    ),
-                    _buildTextField(
-                      'Numéro Orange Money',
-                      _editedData['orange_money_number'],
-                      Icons.phone_android,
-                          (value) => _updateField('orange_money_number', value),
-                      keyboardType: TextInputType.phone,
-                      prefixText: '+221 ',
-                    ),
-                  ],
-                ],
-              ),
-
-              // Description
-              _buildSettingSection(
-                'Description',
-                [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: TextFormField(
-                      initialValue: _editedData['description'],
-                      maxLines: 4,
-                      maxLength: 500,
-                      decoration: InputDecoration(
-                        labelText: 'Description du barbershop',
-                        hintText: 'Décrivez votre barbershop, vos services, votre ambiance...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        helperText: 'Cette description sera visible par les clients',
-                      ),
-                      onChanged: (value) => _updateField('description', value),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Bouton sauvegarder
-              if (_hasChanges || _newProfileImage != null || _newGalleryImages.isNotEmpty || _galleryImagesToDelete.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ElevatedButton(
-                    onPressed: _isUploadingImages ? null : _saveSettings,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isUploadingImages
-                        ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(color: Colors.white),
-                    )
-                        : const Text(
-                      'Enregistrer les modifications',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 20),
-
-              // Section Compte
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Column(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
                   children: [
-                    ListTile(
-                      leading: const Icon(Icons.person, color: AppTheme.primaryColor),
-                      title: const Text('Mon compte'),
-                      subtitle: Text(
-                        context.read<AuthProvider>().currentUser?.fullName ?? '',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () {
-                        // Pour plus tard : écran profil
-                      },
+                    // Informations générales
+                    _buildSettingSection(
+                      'Informations générales',
+                      [
+                        _buildTextField(
+                          'Nom du barbershop',
+                          _editedData['name'],
+                          Icons.store,
+                          (value) => _updateField('name', value),
+                          validator: (value) => value?.isEmpty ?? true ? 'Nom requis' : null,
+                        ),
+                        _buildTextField(
+                          'Téléphone',
+                          _editedData['phone'],
+                          Icons.phone,
+                          (value) => _updateField('phone', value),
+                          keyboardType: TextInputType.phone,
+                          validator: (value) => value?.isEmpty ?? true ? 'Téléphone requis' : null,
+                        ),
+                      ],
                     ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text('Déconnexion'),
-                      subtitle: Text(
-                        'Se déconnecter de l\'application',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      onTap: () => _showLogoutDialog(),
+
+                    // Localisation
+                    _buildLocationSection(),
+
+                    // Section Images
+                    _buildImagesSection(),
+
+                    // Horaires
+                    _buildSettingSection(
+                      'Horaires d\'ouverture',
+                      [
+                        _buildTimeSelector(
+                          'Heure d\'ouverture',
+                          _editedData['opening_time'],
+                          Icons.access_time,
+                          (time) => _updateField('opening_time', time),
+                        ),
+                        _buildTimeSelector(
+                          'Heure de fermeture',
+                          _editedData['closing_time'],
+                          Icons.access_time_filled,
+                          (time) => _updateField('closing_time', time),
+                        ),
+                        _buildWorkingDaysSelector(),
+                      ],
                     ),
+
+                    // Paiements
+                    _buildSettingSection(
+                      'Méthodes de paiement',
+                      [
+                        SwitchListTile(
+                          title: const Text('Paiements en ligne'),
+                          subtitle: const Text('Activer Wave et Orange Money'),
+                          value: _editedData['accepts_online_payment'] ?? false,
+                          onChanged: (val) => _updateField('accepts_online_payment', val),
+                          activeColor: AppTheme.primaryColor,
+                        ),
+                        if (_editedData['accepts_online_payment'] == true) ...[
+                          _buildTextField(
+                            'Numéro Wave',
+                            _editedData['wave_number'],
+                            Icons.phone_android,
+                            (value) => _updateField('wave_number', value),
+                            keyboardType: TextInputType.phone,
+                            prefixText: '+221 ',
+                          ),
+                          _buildTextField(
+                            'Numéro Orange Money',
+                            _editedData['orange_money_number'],
+                            Icons.phone_android,
+                            (value) => _updateField('orange_money_number', value),
+                            keyboardType: TextInputType.phone,
+                            prefixText: '+221 ',
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    // Description
+                    _buildSettingSection(
+                      'Description',
+                      [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: TextFormField(
+                            initialValue: _editedData['description'],
+                            maxLines: 4,
+                            maxLength: 500,
+                            decoration: InputDecoration(
+                              labelText: 'Description du barbershop',
+                              hintText: 'Décrivez votre barbershop, vos services, votre ambiance...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              helperText: 'Cette description sera visible par les clients',
+                            ),
+                            onChanged: (value) => _updateField('description', value),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Bouton sauvegarder
+                    if (_hasChanges || _newProfileImage != null || _newGalleryImages.isNotEmpty || _galleryImagesToDelete.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: ElevatedButton(
+                          onPressed: _isUploadingImages ? null : _saveSettings,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isUploadingImages
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(color: Colors.white),
+                                )
+                              : const Text(
+                                  'Enregistrer les modifications',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    // Section Compte
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.person, color: AppTheme.primaryColor),
+                            title: const Text('Mon compte'),
+                            subtitle: Text(
+                              context.read<AuthProvider>().currentUser?.fullName ?? '',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            trailing: const Icon(Icons.chevron_right, size: 20),
+                            onTap: () {
+                              // Pour plus tard : écran profil
+                            },
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.logout, color: Colors.red),
+                            title: const Text('Déconnexion'),
+                            subtitle: Text(
+                              'Se déconnecter de l\'application',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            onTap: () => _showLogoutDialog(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -353,26 +353,25 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
         ListTile(
           leading: const Icon(Icons.location_city, color: AppTheme.primaryColor),
           title: const Text('Quartier'),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          subtitle: Text(
+            _editedData['quartier']?.isNotEmpty == true
+                ? _editedData['quartier']
+                : 'Sélectionner un quartier',
+            style: TextStyle(
+              color: _editedData['quartier']?.isNotEmpty == true
+                  ? Colors.black87
+                  : Colors.grey[600],
+              fontWeight: _editedData['quartier']?.isNotEmpty == true
+                  ? FontWeight.w500
+                  : FontWeight.normal,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                _editedData['quartier']?.isNotEmpty == true
-                    ? _editedData['quartier']
-                    : 'Sélectionner un quartier',
-                style: TextStyle(
-                  color: _editedData['quartier']?.isNotEmpty == true
-                      ? Colors.black87
-                      : Colors.grey[600],
-                  fontWeight: _editedData['quartier']?.isNotEmpty == true
-                      ? FontWeight.w500
-                      : FontWeight.normal,
-                ),
-              ),
               if (_editedData['quartier']?.isNotEmpty == true)
                 Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -386,9 +385,10 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_drop_down),
             ],
           ),
-          trailing: const Icon(Icons.arrow_drop_down),
           onTap: () => _showQuartierPicker(),
         ),
 
@@ -500,13 +500,13 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                     ),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        setModalState(() {
-                          searchQuery = '';
-                        });
-                      },
-                    )
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setModalState(() {
+                                searchQuery = '';
+                              });
+                            },
+                          )
                         : null,
                   ),
                   onChanged: (value) {
@@ -557,92 +557,92 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                 Expanded(
                   child: filteredZones.isEmpty
                       ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 50, color: Colors.grey[400]),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Aucun quartier trouvé',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  )
-                      : ListView.builder(
-                    itemCount: filteredZones.length,
-                    itemBuilder: (context, index) {
-                      final zone = filteredZones.keys.elementAt(index);
-                      final quartiers = filteredZones[zone]!;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 4,
-                                  height: 20,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                                Text(
-                                  zone,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...quartiers.map((quartier) {
-                            final isSelected = _editedData['quartier'] == quartier;
-                            return ListTile(
-                              dense: true,
-                              title: Text(quartier),
-                              leading: Icon(
-                                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                                color: isSelected ? AppTheme.primaryColor : Colors.grey,
-                                size: 20,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 50, color: Colors.grey[400]),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Aucun quartier trouvé',
+                                style: TextStyle(color: Colors.grey[600]),
                               ),
-                              trailing: isSelected
-                                  ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  'Sélectionné',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.bold,
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filteredZones.length,
+                          itemBuilder: (context, index) {
+                            final zone = filteredZones.keys.elementAt(index);
+                            final quartiers = filteredZones[zone]!;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 4,
+                                        height: 20,
+                                        margin: const EdgeInsets.only(right: 8),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor,
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      Text(
+                                        zone,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              )
-                                  : null,
-                              onTap: () {
-                                setState(() {
-                                  _updateField('quartier', quartier);
-                                });
-                                Navigator.pop(context);
-                              },
+                                ...quartiers.map((quartier) {
+                                  final isSelected = _editedData['quartier'] == quartier;
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(quartier),
+                                    leading: Icon(
+                                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                                      color: isSelected ? AppTheme.primaryColor : Colors.grey,
+                                      size: 20,
+                                    ),
+                                    trailing: isSelected
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              'Sélectionné',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _updateField('quartier', quartier);
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  );
+                                }).toList(),
+                                if (index < filteredZones.length - 1)
+                                  const Divider(),
+                              ],
                             );
-                          }).toList(),
-                          if (index < filteredZones.length - 1)
-                            const Divider(),
-                        ],
-                      );
-                    },
-                  ),
+                          },
+                        ),
                 ),
               ],
             ),
@@ -1473,7 +1473,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
               await context.read<AuthProvider>().signOut();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
+                (route) => false,
               );
             },
             style: ElevatedButton.styleFrom(
