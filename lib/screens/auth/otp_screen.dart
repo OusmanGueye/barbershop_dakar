@@ -146,12 +146,26 @@ class _OTPScreenState extends State<OTPScreen> {
     if (!mounted) return;
 
     if (success) {
+
+      // if (widget.isOwnerSignup && widget.onVerified != null) {
+      //   await widget.onVerified!();  // ✅ Callback d'abord (avec await)
+      //   if (!mounted) return;
+      //   // Le callback gère déjà la navigation vers OwnerMainScreen
+      //   return;
+      // }
+
       // Si c'est une inscription owner avec callback
       if (widget.isOwnerSignup && widget.onVerified != null) {
         Navigator.pop(context);
         widget.onVerified!();
         return;
       }
+
+      // if (widget.isBarberSignup && widget.onVerified != null) {
+      //   await widget.onVerified!();  // ✅ Callback d'abord
+      //   if (!mounted) return;
+      //   return;
+      // }
 
       // Si c'est une inscription barbier avec callback
       if (widget.isBarberSignup && widget.onVerified != null) {

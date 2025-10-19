@@ -5,7 +5,7 @@ import 'package:image/image.dart' as img;
 import '../config/supabase_config.dart';
 
 class UploadService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
   final ImagePicker _picker = ImagePicker();
 
   Future<String?> uploadAvatar() async {
@@ -25,7 +25,8 @@ class UploadService {
       final compressedBytes = await _compressImage(bytes);
 
       // 3. Générer un nom unique
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) throw Exception('User not logged in');
 
       final fileName = '$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';

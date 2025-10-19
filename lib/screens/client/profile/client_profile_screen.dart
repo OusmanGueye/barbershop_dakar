@@ -53,7 +53,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final supabase = SupabaseConfig.supabase;
+    final supabase = SupabaseConfig.client;
     final user = supabase.auth.currentUser;
 
     if (user == null) {

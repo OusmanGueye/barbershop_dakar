@@ -31,7 +31,8 @@ class ReservationProvider extends ChangeNotifier {
       _setLoading(true);
       _errorMessage = null;
 
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) {
         throw Exception('Utilisateur non connecté');
       }
@@ -87,7 +88,7 @@ class ReservationProvider extends ChangeNotifier {
 
       // Notifier le barbier
       await NotificationService.showNewReservationForBarber(
-        clientName: SupabaseConfig.currentUser?.userMetadata?['full_name'] ?? 'Client',
+        clientName: (SupabaseConfig.client.auth.currentUser?.userMetadata?['full_name'] as String?) ?? 'Client',
         service: '${service['name']} (${serviceDuration}min)',
         time: '$timeSlot - ${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}',
         date: DateFormat('d MMMM', 'fr').format(date),
@@ -135,7 +136,7 @@ class ReservationProvider extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _getBarbershopInfo(String id) async {
-    final response = await SupabaseConfig.supabase
+    final response = await SupabaseConfig.client
         .from('barbershops')
         .select()
         .eq('id', id)
@@ -144,7 +145,7 @@ class ReservationProvider extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _getServiceInfo(String id) async {
-    final response = await SupabaseConfig.supabase
+    final response = await SupabaseConfig.client
         .from('services')
         .select()
         .eq('id', id)
@@ -153,7 +154,7 @@ class ReservationProvider extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _getBarberInfo(String id) async {
-    final response = await SupabaseConfig.supabase
+    final response = await SupabaseConfig.client
         .from('barbers')
         .select()
         .eq('id', id)

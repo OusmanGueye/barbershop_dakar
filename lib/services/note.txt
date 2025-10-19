@@ -1,0 +1,416 @@
+import '../config/supabase_config.dart';
+
+class BarberService {
+  final _supabase = SupabaseConfig.client;
+
+  // Obtenir l'ID du barbier
+  Future<String?> getBarberId() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final response = await _supabase
+          .from('barbers')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response?['id'] as String?;
+    } catch (e) {
+      print('Erreur getBarberId: $e');
+      return null;
+    }
+  }
+
+  // Réservations pour une date donnée
+  Future<List<Map<String, dynamic>>> getReservationsByDate(DateTime date) async {
+    try {
+      final barberId = await getBarberId();
+      if (barberId == null) return [];
+
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+      final response = await _supabase
+          .from('reservations')
+          .select('''
+            *,
+            client:users!client_id(*),
+            service:services(*)
+          ''')
+          .eq('barber_id', barberId)
+          .eq('date', dateStr)
+          .order('time_slot', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Erreur getReservationsByDate: $e');
+      return [];
+    }
+  }
+
+  // Stats complètes
+  Future<Map<String, dynamic>> getCompleteStats() async {
+    try {
+      final barberId = await getBarberId();
+      if (barberId == null) {
+        return {
+          'today': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+          'week': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+          'month': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+          'regularClients': 0,
+          'averagePerDay': 0,
+          'topService': 'Aucun',
+        };
+      }
+
+      final now = DateTime.now();
+
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final todayEnd = todayStart.add(const Duration(days: 1));
+
+      final weekStart = now.subtract(Duration(days: now.weekday - 1));
+      final weekEnd = weekStart.add(const Duration(days: 7));
+
+      final monthStart = DateTime(now.year, now.month, 1);
+      final monthEnd = DateTime(now.year, now.month + 1, 0);
+
+      final todayRes = await _getStatsForPeriod(barberId, todayStart, todayEnd);
+      final weekRes = await _getStatsForPeriod(barberId, weekStart, weekEnd);
+      final monthRes = await _getStatsForPeriod(barberId, monthStart, monthEnd);
+
+      int regularCount = 0;
+      try {
+        final regularClients = await _supabase
+            .from('reservations')
+            .select('client_id')
+            .eq('barber_id', barberId)
+            .eq('status', 'completed');
+
+        final visits = <String, int>{};
+        for (final res in (regularClients as List)) {
+          final id = res['client_id'] as String;
+          visits[id] = (visits[id] ?? 0) + 1;
+        }
+        regularCount = visits.values.where((v) => v >= 3).length;
+      } catch (e) {
+        print('Erreur calcul clients réguliers: $e');
+      }
+
+      return {
+        'today': todayRes,
+        'week': weekRes,
+        'month': monthRes,
+        'regularClients': regularCount,
+        'averagePerDay': monthRes['total'] > 0 ? monthRes['revenue'] ~/ 30 : 0,
+        'topService': await _getTopService(barberId),
+      };
+    } catch (e) {
+      print('Erreur getCompleteStats: $e');
+      return {
+        'today': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+        'week': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+        'month': {'revenue': 0, 'completed': 0, 'cancelled': 0, 'noShow': 0, 'total': 0},
+        'regularClients': 0,
+        'averagePerDay': 0,
+        'topService': 'Aucun',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getStatsForPeriod(
+      String barberId,
+      DateTime start,
+      DateTime end,
+      ) async {
+    final response = await _supabase
+        .from('reservations')
+        .select('total_amount, status')
+        .eq('barber_id', barberId)
+        .gte('date', start.toIso8601String().split('T')[0])
+        .lt('date', end.toIso8601String().split('T')[0]);
+
+    int revenue = 0, completed = 0, cancelled = 0, noShow = 0;
+
+    for (final res in (response as List)) {
+      switch (res['status']) {
+        case 'completed':
+          completed++;
+          revenue += (res['total_amount'] as num).toInt();
+          break;
+        case 'cancelled':
+          cancelled++;
+          break;
+        case 'no_show':
+          noShow++;
+          break;
+      }
+    }
+
+    return <String, dynamic>{
+      'revenue': revenue,
+      'completed': completed,
+      'cancelled': cancelled,
+      'noShow': noShow,
+      'total': response.length,
+    };
+  }
+
+  Future<String> _getTopService(String barberId) async {
+    final response = await _supabase
+        .from('reservations')
+        .select('service:services(name)')
+        .eq('barber_id', barberId)
+        .eq('status', 'completed')
+        .limit(100);
+
+    final counts = <String, int>{};
+    for (final res in (response as List)) {
+      final name = res['service']?['name'] ?? 'Service';
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    if (counts.isEmpty) return 'Aucun';
+    return counts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+  }
+
+  Future<double> getCommissionRate() async {
+    try {
+      final barberId = await getBarberId();
+      if (barberId == null) return 70.0;
+
+      final response = await _supabase
+          .from('barbers')
+          .select('commission_rate')
+          .eq('id', barberId)
+          .maybeSingle();
+
+      return (response?['commission_rate'] as num?)?.toDouble() ?? 70.0;
+    } catch (e) {
+      print('Erreur getCommissionRate: $e');
+      return 70.0;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllClients() async {
+    try {
+      final barberId = await getBarberId();
+      if (barberId == null) return [];
+
+      final reservations = await _supabase
+          .from('reservations')
+          .select('client_id, created_at')
+          .eq('barber_id', barberId)
+          .order('created_at', ascending: false);
+
+      final ids = <String>{};
+      final visits = <String, int>{};
+
+      for (final r in (reservations as List)) {
+        final cid = r['client_id'] as String?;
+        if (cid != null) {
+          ids.add(cid);
+          visits[cid] = (visits[cid] ?? 0) + 1;
+        }
+      }
+      if (ids.isEmpty) return [];
+
+      final clientsData = await _supabase
+          .from('users')
+          .select('id, full_name, phone, avatar_url, preferred_language, created_at')
+          .filter('id', 'in', '(${ids.join(',')})');
+
+      final list = (clientsData as List).map((c) {
+        final m = Map<String, dynamic>.from(c);
+        m['visits'] = visits[c['id']] ?? 0;
+        return m;
+      }).toList();
+
+      list.sort((a, b) => (b['visits'] as int).compareTo(a['visits'] as int));
+      return list;
+    } catch (e) {
+      print('Erreur getAllClients: $e');
+      return [];
+    }
+  }
+
+  Future<bool> updateAvailability(String barberId, bool isAvailable) async {
+    try {
+      await _supabase
+          .from('barbers')
+          .update({'is_available': isAvailable})
+          .eq('id', barberId);
+      return true;
+    } catch (e) {
+      print('Erreur updateAvailability: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> verifyInviteCode(String phone, String code) async {
+    try {
+      String p = phone.trim();
+      if (!p.startsWith('221')) p = '221$p';
+      final c = code.trim().toUpperCase();
+
+      final response = await _supabase
+          .from('barbers')
+          .select()
+          .eq('phone', p)
+          .eq('invite_code', c)
+          .eq('invite_status', 'pending')
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('Erreur verifyInviteCode: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> linkBarberToUser(String barberId, String userId) async {
+    try {
+      await _supabase
+          .from('barbers')
+          .update({'user_id': userId, 'invite_status': 'accepted'})
+          .eq('id', barberId);
+    } catch (e) {
+      print('Erreur linkBarberToUser: $e');
+      return false;
+    }
+    return true;
+  }
+
+  Future<Map<String, dynamic>?> getBarberByUserId(String userId) async {
+    try {
+      final response = await _supabase
+          .from('barbers')
+          .select('*, barbershop:barbershops(*)')
+          .eq('user_id', userId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('Erreur getBarberByUserId: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> getBarberDashboardStats(String barberId) async {
+    try {
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final todayStr = now.toIso8601String().split('T')[0];
+
+      final todayReservations = await _supabase
+          .from('reservations')
+          .select('total_amount, status')
+          .eq('barber_id', barberId)
+          .eq('date', todayStr);
+
+      final monthReservations = await _supabase
+          .from('reservations')
+          .select('total_amount, status')
+          .eq('barber_id', barberId)
+          .gte('date', startOfMonth.toIso8601String().split('T')[0]);
+
+      int todayRevenue = 0, todayClients = 0, monthRevenue = 0, monthClients = 0;
+
+      for (final r in (todayReservations as List)) {
+        final status = r['status'] as String;
+        if (status == 'completed') {
+          todayRevenue += (r['total_amount'] as num? ?? 0).toInt();
+        }
+        if (status != 'cancelled') todayClients++;
+      }
+
+      for (final r in (monthReservations as List)) {
+        final status = r['status'] as String;
+        if (status == 'completed') {
+          monthRevenue += (r['total_amount'] as num? ?? 0).toInt();
+        }
+        if (status != 'cancelled') monthClients++;
+      }
+
+      final rate = await getCommissionRate();
+      final todayCommission = (todayRevenue * rate / 100).round();
+      final monthCommission = (monthRevenue * rate / 100).round();
+
+      return {
+        'todayRevenue': todayCommission,
+        'todayCommission': todayCommission,
+        'monthRevenue': monthCommission,
+        'monthCommission': monthCommission,
+        'todayClients': todayClients,
+        'monthClients': monthClients,
+        'commissionRate': rate,
+      };
+    } catch (e) {
+      print('Erreur getBarberDashboardStats: $e');
+      return {
+        'todayRevenue': 0,
+        'todayClients': 0,
+        'monthRevenue': 0,
+        'monthClients': 0,
+      };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getBarberReservations(String barberId) async {
+    try {
+      final response = await _supabase
+          .from('reservations')
+          .select('''
+            *,
+            client:users!client_id(*),
+            service:services(*)
+          ''')
+          .eq('barber_id', barberId)
+          .order('date', ascending: false)
+          .order('time_slot', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Erreur getBarberReservations: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCurrentBarberInfo() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final response = await _supabase
+          .from('barbers')
+          .select('*, barbershop:barbershops(*)')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('Erreur getCurrentBarberInfo: $e');
+      return null;
+    }
+  }
+
+
+  Future<bool> updateReservationStatus(String reservationId, String status) async {
+    try {
+      await _supabase
+          .from('reservations')
+          .update({
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      })
+          .eq('id', reservationId);
+      return true;
+    } catch (e) {
+      print('Erreur updateReservationStatus: $e');
+      return false;
+    }
+  }
+
+
+
+}
+

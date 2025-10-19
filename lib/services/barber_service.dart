@@ -1,12 +1,13 @@
 import '../config/supabase_config.dart';
 
 class BarberService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // Obtenir l'ID du barbier
   Future<String?> getBarberId() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return null;
 
       final response = await _supabase
@@ -569,7 +570,8 @@ class BarberService {
   // Obtenir les infos du barbier connecté
   Future<Map<String, dynamic>?> getCurrentBarberInfo() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return null;
 
       final response = await _supabase

@@ -8,7 +8,7 @@ import '../config/supabase_config.dart';
 
 class BarbershopProvider extends ChangeNotifier {
   final BarbershopService _service = BarbershopService();
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // États existants
   List<BarbershopModel> _barbershops = [];

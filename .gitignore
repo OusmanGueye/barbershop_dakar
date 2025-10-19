@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+# Clés de signature (NE JAMAIS COMMIT)
+*.jks
+*.keystore
+#key.properties
+#android/key.properties
+#barbergo-release-key.jks

@@ -3,7 +3,7 @@ import '../models/barbershop_model.dart';
 import '../models/service_model.dart';
 
 class BarbershopService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // Récupérer tous les barbershops
   Future<List<BarbershopModel>> getBarbershops() async {

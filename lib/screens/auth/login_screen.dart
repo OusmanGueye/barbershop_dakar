@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
@@ -65,26 +65,48 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 48),
-                
-                // Logo
+
+                // Logo - NOUVELLE ICÔNE
                 Center(
                   child: Container(
-                    width: 100,
-                    height: 100,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.content_cut,
-                      size: 50,
-                      color: Colors.white,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: Image.asset(
+                        'assets/icons/app_icon.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback si l'image n'est pas trouvée
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Icon(
+                              Icons.content_cut,
+                              size: 60,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Titre
                 const Text(
                   'Bienvenue !',
@@ -101,9 +123,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.grey,
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Champ téléphone
                 const Text(
                   'Numéro de téléphone',
@@ -147,9 +169,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Bouton
                 SizedBox(
                   width: double.infinity,
@@ -162,10 +184,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                // Ajouter après le bouton "Recevoir le code"
                 const SizedBox(height: 16),
 
-// Divider
+                // Divider
                 Row(
                   children: const [
                     Expanded(child: Divider()),
@@ -177,29 +198,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                // const SizedBox(height: 16),
+                //
+                // // Bouton Créer Barbershop
+                // OutlinedButton.icon(
+                //   onPressed: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (_) => const OwnerSignupScreen(),
+                //       ),
+                //     );
+                //   },
+                //   icon: const Icon(Icons.store),
+                //   label: const Text('Créer mon Barbershop'),
+                //   style: OutlinedButton.styleFrom(
+                //     minimumSize: const Size(double.infinity, 56),
+                //     side: BorderSide(color: AppTheme.primaryColor),
+                //   ),
+                // ),
 
-// Bouton Créer Barbershop
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const OwnerSignupScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.store),
-                  label: const Text('Créer mon Barbershop'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 56),
-                    side: BorderSide(color: AppTheme.primaryColor),
-                  ),
-                ),
-
-                // Après le bouton "Créer mon Barbershop"
                 const SizedBox(height: 12),
 
+                // Bouton Barbier
                 OutlinedButton.icon(
                   onPressed: () {
                     Navigator.push(
@@ -215,9 +236,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     minimumSize: const Size(double.infinity, 56),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Conditions
                 const Center(
                   child: Text(

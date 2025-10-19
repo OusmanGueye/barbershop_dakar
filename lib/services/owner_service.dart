@@ -1,12 +1,13 @@
 import '../config/supabase_config.dart';
 
 class OwnerService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // Obtenir le barbershop du propriétaire
   Future<String?> getOwnerBarbershopId() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return null;
 
       final response = await _supabase

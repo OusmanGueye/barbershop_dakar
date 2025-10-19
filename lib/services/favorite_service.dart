@@ -1,11 +1,12 @@
 import '../config/supabase_config.dart';
 
 class FavoriteService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   Future<bool> toggleFavorite(String barbershopId) async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return false;
 
       // Vérifier si déjà en favori
@@ -39,7 +40,8 @@ class FavoriteService {
 
   Future<List<String>> getUserFavorites() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return [];
 
       final response = await _supabase

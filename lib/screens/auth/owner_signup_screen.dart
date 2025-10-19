@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase/supabase.dart' as supa;
 import '../../config/theme.dart';
+import '../../config/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/barbershop_service.dart';
-import '../../services/upload_service.dart';
 import '../owner/owner_main_screen.dart';
 import 'otp_screen.dart';
 
@@ -20,7 +22,8 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _pageController = PageController();
   final _barbershopService = BarbershopService();
-  final _uploadService = UploadService();
+  final _imagePicker = ImagePicker();
+  final _supabase = Supabase.instance.client;
 
   // Étape actuelle
   int _currentStep = 0;
@@ -35,7 +38,7 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
   final _addressController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  String _selectedQuartier = 'Almadies';
+  String _selectedQuartier = 'Almadies';  // Valeur par défaut
   bool _acceptsOnlinePayment = false;
   final _waveNumberController = TextEditingController();
   final _orangeMoneyController = TextEditingController();
@@ -47,9 +50,9 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
     'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'
   ];
 
-  // Photos du barbershop
-  List<File> _shopPhotos = [];
-  final ImagePicker _picker = ImagePicker();
+  // Photos du barbershop - COMME SHOP_SETTINGS
+  File? _profileImage;              // Image principale (OBLIGATOIRE)
+  List<File> _galleryImages = [];   // Galerie (max 4)
 
   bool _isLoading = false;
 
@@ -71,56 +74,296 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    if (_shopPhotos.length >= 5) {
+  // ==========================================
+  // GESTION D'IMAGES - IDENTIQUE À SHOP_SETTINGS
+  // ==========================================
+
+  Future<void> _pickImage({required bool isProfile}) async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: isProfile ? 1920 : 1200,
+      );
+
+      if (image != null) {
+        setState(() {
+          if (isProfile) {
+            _profileImage = File(image.path);
+          } else {
+            final canAdd = _galleryImages.length < 4;
+            if (canAdd) {
+              _galleryImages.add(File(image.path));
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Maximum 4 photos pour la galerie'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+        });
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Maximum 5 photos'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: Text('Erreur lors de la sélection: $e'),
+          backgroundColor: Colors.red,
         ),
       );
-      return;
-    }
-
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-    );
-
-    if (image != null) {
-      setState(() {
-        _shopPhotos.add(File(image.path));
-      });
     }
   }
 
-  Future<void> _takePhoto() async {
-    if (_shopPhotos.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Maximum 5 photos'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final XFile? photo = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-    );
-
-    if (photo != null) {
-      setState(() {
-        _shopPhotos.add(File(photo.path));
-      });
-    }
-  }
-
-  void _removePhoto(int index) {
+  void _removeGalleryImage(int index) {
     setState(() {
-      _shopPhotos.removeAt(index);
+      _galleryImages.removeAt(index);
     });
+  }
+
+  String _getMimeType(String filePath) {
+    final ext = filePath.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  // ==========================================
+  // QUARTIER PICKER - IDENTIQUE À SHOP_SETTINGS
+  // ==========================================
+
+  void _showQuartierPicker() {
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          Map<String, List<String>> filteredZones = {};
+
+          if (searchQuery.isEmpty) {
+            filteredZones = AppConstants.dakarZones;
+          } else {
+            AppConstants.dakarZones.forEach((zone, quartiers) {
+              final filtered = quartiers
+                  .where((q) => q.toLowerCase().contains(searchQuery.toLowerCase()))
+                  .toList();
+              if (filtered.isNotEmpty) {
+                filteredZones[zone] = filtered;
+              }
+            });
+          }
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Sélectionner votre quartier',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Cela permettra aux clients de vous trouver facilement',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un quartier...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setModalState(() {
+                          searchQuery = '';
+                        });
+                      },
+                    )
+                        : null,
+                  ),
+                  onChanged: (value) {
+                    setModalState(() {
+                      searchQuery = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                if (searchQuery.isEmpty) ...[
+                  SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: AppConstants.popularQuartiers.length,
+                      itemBuilder: (context, index) {
+                        final quartier = AppConstants.popularQuartiers[index];
+                        final isSelected = _selectedQuartier == quartier;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ActionChip(
+                            label: Text(quartier),
+                            onPressed: () {
+                              setState(() {
+                                _selectedQuartier = quartier;
+                              });
+                              Navigator.pop(context);
+                            },
+                            backgroundColor: isSelected
+                                ? AppTheme.primaryColor
+                                : Colors.grey[200],
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const Divider(height: 20),
+                ],
+
+                Expanded(
+                  child: filteredZones.isEmpty
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 50, color: Colors.grey[400]),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Aucun quartier trouvé',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                      : ListView.builder(
+                    itemCount: filteredZones.length,
+                    itemBuilder: (context, index) {
+                      final zone = filteredZones.keys.elementAt(index);
+                      final quartiers = filteredZones[zone]!;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 4,
+                                  height: 20,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    zone,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...quartiers.map((quartier) {
+                            final isSelected = _selectedQuartier == quartier;
+                            return ListTile(
+                              dense: true,
+                              title: Text(quartier),
+                              leading: Icon(
+                                isSelected ? Icons.check_circle : Icons.circle_outlined,
+                                color: isSelected ? AppTheme.primaryColor : Colors.grey,
+                                size: 20,
+                              ),
+                              trailing: isSelected
+                                  ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Sélectionné',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                                  : null,
+                              onTap: () {
+                                setState(() {
+                                  _selectedQuartier = quartier;
+                                });
+                                Navigator.pop(context);
+                              },
+                            );
+                          }).toList(),
+                          if (index < filteredZones.length - 1)
+                            const Divider(),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _selectTime(bool isOpening) async {
@@ -141,60 +384,35 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
   }
 
   Future<void> _proceedToOTP() async {
-    // Validation manuelle des champs obligatoires
+    // Validations
     if (_ownerNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer votre nom complet'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      _pageController.animateToPage(0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut
-      );
+      _showError('Veuillez entrer votre nom complet', 0);
       return;
     }
 
     if (_ownerPhoneController.text.isEmpty || _ownerPhoneController.text.length != 9) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer un numéro de téléphone valide (9 chiffres)'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      _pageController.animateToPage(0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut
-      );
+      _showError('Veuillez entrer un numéro de téléphone valide (9 chiffres)', 0);
       return;
     }
 
     if (_shopNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer le nom du barbershop'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      _pageController.animateToPage(0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut
-      );
+      _showError('Veuillez entrer le nom du barbershop', 0);
       return;
     }
 
     if (_addressController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez entrer l\'adresse du barbershop'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      _pageController.animateToPage(0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut
-      );
+      _showError('Veuillez entrer l\'adresse du barbershop', 0);
+      return;
+    }
+
+    if (_selectedQuartier.isEmpty) {
+      _showError('Veuillez sélectionner un quartier', 0);
+      return;
+    }
+
+    // VALIDATION IMAGE PRINCIPALE OBLIGATOIRE
+    if (_profileImage == null) {
+      _showError('L\'image principale est obligatoire pour être visible dans la liste', 2);
       return;
     }
 
@@ -225,14 +443,12 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Envoyer OTP
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.sendOTP(_ownerPhoneController.text);
 
       if (!mounted) return;
 
       if (success) {
-        // Naviguer vers OTP avec callback
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -263,8 +479,20 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
     }
   }
 
+  void _showError(String message, int step) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.errorColor,
+      ),
+    );
+    _pageController.animateToPage(step,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut
+    );
+  }
+
   Future<void> _onOTPVerified() async {
-    // Cette fonction est appelée après vérification OTP réussie
     setState(() => _isLoading = true);
 
     try {
@@ -277,30 +505,73 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
       _tempBarbershopData!['owner_id'] = authProvider.currentUser!.id;
       final barbershopId = await _barbershopService.createBarbershop(_tempBarbershopData!);
 
-      // 3. Upload des photos si présentes
-      if (_shopPhotos.isNotEmpty) {
-        List<String> photoUrls = [];
-        for (var photo in _shopPhotos) {
-          final url = await _uploadService.uploadBarbershopPhoto(
-            barbershopId,
-            photo,
-          );
-          if (url != null) photoUrls.add(url);
-        }
+      // 3. UPLOAD DES IMAGES - IDENTIQUE À SHOP_SETTINGS
+      String? profileImageUrl;
+      List<String> galleryUrls = [];
 
-        // Mettre à jour avec les URLs des photos
-        await _barbershopService.updateBarbershop(
-          barbershopId,
-          {'photos': photoUrls},
+      // Upload image principale (OBLIGATOIRE)
+      if (_profileImage != null) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final profilePath = '$barbershopId/profile_$timestamp.jpg';
+        final mimeType = _getMimeType(_profileImage!.path);
+
+        await _supabase.storage
+            .from('barbershop-images')
+            .upload(
+          profilePath,
+          _profileImage!,
+          fileOptions: supa.FileOptions(
+            upsert: true,
+            contentType: mimeType,
+            cacheControl: '3600',
+          ),
         );
+
+        profileImageUrl = _supabase.storage
+            .from('barbershop-images')
+            .getPublicUrl(profilePath);
       }
 
-      // 4. Ajouter les services de base
+      // Upload galerie (max 4)
+      for (int i = 0; i < _galleryImages.length && i < 4; i++) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final galleryPath = '$barbershopId/gallery_${timestamp}_$i.jpg';
+        final mimeType = _getMimeType(_galleryImages[i].path);
+
+        await _supabase.storage
+            .from('barbershop-images')
+            .upload(
+          galleryPath,
+          _galleryImages[i],
+          fileOptions: supa.FileOptions(
+            upsert: true,
+            contentType: mimeType,
+            cacheControl: '3600',
+          ),
+        );
+
+        final galleryUrl = _supabase.storage
+            .from('barbershop-images')
+            .getPublicUrl(galleryPath);
+
+        galleryUrls.add(galleryUrl);
+      }
+
+      // 4. Mettre à jour avec les URLs des images
+      await _barbershopService.updateBarbershop(
+        barbershopId,
+        {
+          'profile_image': profileImageUrl,
+          'gallery_images': galleryUrls,
+        },
+      );
+
+      // 5. Ajouter les services de base
       await _barbershopService.addDefaultServices(barbershopId);
 
       if (!mounted) return;
 
-      // 5. Naviguer vers le dashboard owner
+      // 6. Naviguer vers le dashboard owner
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const OwnerMainScreen()),
@@ -466,12 +737,6 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
                 prefixIcon: Icon(Icons.person),
                 border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Nom requis';
-                }
-                return null;
-              },
             ),
 
             const SizedBox(height: 16),
@@ -487,15 +752,6 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
                 border: OutlineInputBorder(),
                 counterText: '',
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Téléphone requis';
-                }
-                if (value.length != 9) {
-                  return 'Format invalide (9 chiffres)';
-                }
-                return null;
-              },
             ),
 
             const SizedBox(height: 32),
@@ -513,12 +769,6 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
                 prefixIcon: Icon(Icons.store),
                 border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Nom requis';
-                }
-                return null;
-              },
             ),
 
             const SizedBox(height: 16),
@@ -545,36 +795,50 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
                 prefixIcon: Icon(Icons.location_on),
                 border: OutlineInputBorder(),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Adresse requise';
-                }
-                return null;
-              },
             ),
 
             const SizedBox(height: 16),
 
-            DropdownButtonFormField<String>(
-              value: _selectedQuartier,
-              decoration: const InputDecoration(
-                labelText: 'Quartier',
-                prefixIcon: Icon(Icons.map),
-                border: OutlineInputBorder(),
+            // QUARTIER PICKER AVANCÉ
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
               ),
-              items: const [
-                'Almadies', 'Point E', 'Plateau', 'Médina',
-                'Mermoz', 'Sacré-Cœur', 'HLM', 'Parcelles Assainies',
-                'Ngor', 'Yoff', 'Grand Dakar', 'Pikine',
-              ].map((quartier) {
-                return DropdownMenuItem(
-                  value: quartier,
-                  child: Text(quartier),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() => _selectedQuartier = value!);
-              },
+              child: ListTile(
+                leading: const Icon(Icons.location_city, color: AppTheme.primaryColor),
+                title: const Text('Quartier *'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedQuartier,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        AppConstants.getZoneForQuartier(_selectedQuartier) ?? 'Zone',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: () => _showQuartierPicker(),
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -618,7 +882,6 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Horaires
           Row(
             children: [
               Expanded(
@@ -657,7 +920,6 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Jours de la semaine
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -738,120 +1000,230 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // IMAGE PRINCIPALE (OBLIGATOIRE)
           const Text(
-            '📸 Photos du barbershop',
+            '📸 Image Principale',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Ajoutez jusqu\'à 5 photos (optionnel)',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
 
-          // Grid des photos
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Image obligatoire pour être visible dans la liste',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          InkWell(
+            onTap: () => _pickImage(isProfile: true),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _profileImage == null
+                      ? Colors.orange
+                      : Colors.grey.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_profileImage != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        _profileImage!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ajouter image principale',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Format 16:9 recommandé',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  if (_profileImage != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                          onPressed: () => _pickImage(isProfile: true),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // GALERIE (OPTIONNELLE)
+          const Text(
+            '🖼️ Galerie Photos (optionnel)',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Jusqu\'à 4 photos additionnelles de votre barbershop',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+              crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
+              childAspectRatio: 1,
             ),
-            itemCount: _shopPhotos.length + 1,
+            itemCount: 4,
             itemBuilder: (context, index) {
-              if (index == _shopPhotos.length) {
-                // Bouton ajouter
-                return GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) => Container(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.camera_alt),
-                              title: const Text('Prendre une photo'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _takePhoto();
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.photo_library),
-                              title: const Text('Choisir de la galerie'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                _pickImage();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.primaryColor,
-                        width: 2,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.add_a_photo,
-                        size: 40,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                );
-              } else {
-                // Photo existante
+              if (index < _galleryImages.length) {
                 return Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: FileImage(_shopPhotos[index]),
-                          fit: BoxFit.cover,
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        _galleryImages[index],
+                        fit: BoxFit.cover,
                       ),
                     ),
                     Positioned(
                       top: 4,
                       right: 4,
-                      child: GestureDetector(
-                        onTap: () => _removePhoto(index),
+                      child: InkWell(
+                        onTap: () => _removeGalleryImage(index),
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.red,
+                            color: Colors.black.withOpacity(0.5),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.close,
-                            size: 16,
                             color: Colors.white,
+                            size: 16,
                           ),
                         ),
                       ),
                     ),
                   ],
                 );
+              } else {
+                bool canAdd = _galleryImages.length < 4;
+                return InkWell(
+                  onTap: canAdd ? () => _pickImage(isProfile: false) : null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(canAdd ? 0.3 : 0.1),
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate,
+                          color: AppTheme.primaryColor.withOpacity(canAdd ? 1 : 0.3),
+                          size: 32,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Ajouter',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor.withOpacity(canAdd ? 1 : 0.3),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               }
             },
           ),
 
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              '${_galleryImages.length}/4 photos',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ),
+
           const SizedBox(height: 24),
 
-          // Info
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -864,7 +1236,7 @@ class _OwnerSignupScreenState extends State<OwnerSignupScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Les photos aident les clients à découvrir votre barbershop. Vous pourrez en ajouter plus tard.',
+                    'Les photos aident les clients à découvrir votre barbershop. Vous pourrez en modifier dans les paramètres.',
                     style: TextStyle(color: Colors.blue[700], fontSize: 12),
                   ),
                 ),

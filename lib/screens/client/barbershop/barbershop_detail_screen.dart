@@ -41,10 +41,11 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen> {
   // Vérifier si c'est un favori
   Future<void> _checkIfFavorite() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) return;
 
-      final response = await SupabaseConfig.supabase
+      final response = await SupabaseConfig.client
           .from('favorites')
           .select()
           .eq('user_id', userId)
@@ -64,7 +65,8 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen> {
   // Toggle favori
   Future<void> _toggleFavorite() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -76,13 +78,13 @@ class _BarbershopDetailScreenState extends State<BarbershopDetailScreen> {
       }
 
       if (_isFavorite) {
-        await SupabaseConfig.supabase
+        await SupabaseConfig.client
             .from('favorites')
             .delete()
             .eq('user_id', userId)
             .eq('barbershop_id', widget.barbershopId);
       } else {
-        await SupabaseConfig.supabase.from('favorites').insert({
+        await SupabaseConfig.client.from('favorites').insert({
           'user_id': userId,
           'barbershop_id': widget.barbershopId,
         });
@@ -181,7 +183,7 @@ Téléchargez l'app pour réserver : https://barbershop-dakar.com
   Future<void> _loadReviews() async {
     setState(() => _isLoadingReviews = true);
     try {
-      final response = await SupabaseConfig.supabase
+      final response = await SupabaseConfig.client
           .from('reviews')
           .select('''
             *,

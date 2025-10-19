@@ -46,18 +46,18 @@ class _BarberProfileScreenState extends State<BarberProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = SupabaseConfig.supabase.auth.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
       if (userId == null) return;
 
       // Charger les données users
-      final userResponse = await SupabaseConfig.supabase
+      final userResponse = await SupabaseConfig.client
           .from('users')
           .select('full_name, avatar_url, phone')
           .eq('id', userId)
           .single();
 
       // Charger les données barber
-      final barberResponse = await SupabaseConfig.supabase
+      final barberResponse = await SupabaseConfig.client
           .from('barbers')
           .select('*, barbershop:barbershops(name)')
           .eq('user_id', userId)
@@ -102,7 +102,7 @@ class _BarberProfileScreenState extends State<BarberProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = SupabaseConfig.supabase.auth.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
       if (userId == null) {
         throw Exception('Session expirée');
       }
@@ -122,7 +122,7 @@ class _BarberProfileScreenState extends State<BarberProfileScreen> {
         final path = '$userId/$fileName';
         final bytes = await _imageFile!.readAsBytes();
 
-        await SupabaseConfig.supabase.storage.from('avatars').uploadBinary(
+        await SupabaseConfig.client.storage.from('avatars').uploadBinary(
           path,
           bytes,
           fileOptions: supa.FileOptions(
@@ -132,19 +132,19 @@ class _BarberProfileScreenState extends State<BarberProfileScreen> {
           ),
         );
 
-        newAvatarUrl = SupabaseConfig.supabase.storage
+        newAvatarUrl = SupabaseConfig.client.storage
             .from('avatars')
             .getPublicUrl(path);
 
         // Mettre à jour dans users
-        await SupabaseConfig.supabase
+        await SupabaseConfig.client
             .from('users')
             .update({'avatar_url': newAvatarUrl})
             .eq('id', userId);
       }
 
       // 2) Mettre à jour le profil barbier
-      await SupabaseConfig.supabase
+      await SupabaseConfig.client
           .from('barbers')
           .update({
         'display_name': _displayNameController.text.trim(),

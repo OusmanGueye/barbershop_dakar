@@ -1,8 +1,9 @@
+// lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/upload_service.dart';
 import '../models/user_model.dart';
-import '../config/supabase_config.dart'; // Ajouter cet import
+import '../config/supabase_config.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -18,22 +19,22 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
 
-  // Initialiser
+  /// À appeler au démarrage (depuis Splash)
   Future<void> initialize() async {
     await loadCurrentUser();
   }
 
-  // Charger l'utilisateur actuel
+  /// Charge le profil utilisateur (à partir de l'ID auth courant)
   Future<void> loadCurrentUser() async {
     try {
       _currentUser = await _authService.getUserProfile();
       notifyListeners();
     } catch (e) {
-      print('Erreur chargement user: $e');
+      debugPrint('Erreur chargement user: $e');
     }
   }
 
-  // Envoyer OTP
+  /// Envoi OTP via Supabase Auth (ton Hook Orange s’exécutera si activé)
   Future<bool> sendOTP(String phone) async {
     try {
       _setLoading(true);
@@ -48,14 +49,14 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Vérifier OTP
+  /// Vérifie OTP puis crée/maj le profil utilisateur si besoin
   Future<bool> verifyOTP(String phone, String otp) async {
     try {
       _setLoading(true);
       _errorMessage = null;
 
       await _authService.verifyOTP(phone, otp);
-      await loadCurrentUser();
+      await loadCurrentUser(); // récupère UserModel
 
       return true;
     } catch (e) {
@@ -66,17 +67,21 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Mettre à jour le profil (CORRIGÉ)
+  /// Mise à jour du profil (DB) puis rafraîchit le cache local
   Future<bool> updateProfile(Map<String, dynamic> data) async {
     try {
       _setLoading(true);
       _errorMessage = null;
 
-      // Utiliser SupabaseConfig au lieu de _supabase
-      await SupabaseConfig.supabase
-          .from('users')
-          .update(data)
-          .eq('id', SupabaseConfig.currentUser!.id);
+      final supabase = SupabaseConfig.client;
+      final uid = supabase.auth.currentUser?.id;
+      if (uid == null) {
+        throw Exception('Utilisateur non authentifié');
+      }
+
+      data['updated_at'] = DateTime.now().toIso8601String();
+
+      await supabase.from('users').update(data).eq('id', uid);
 
       await loadCurrentUser();
       return true;
@@ -88,7 +93,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Upload avatar
+  /// Upload avatar (stockage) puis MAJ locale ; si tu veux le persister,
+  /// ajoute aussi un UPDATE DB ici.
   Future<bool> uploadAvatar() async {
     try {
       _setLoading(true);
@@ -96,8 +102,14 @@ class AuthProvider extends ChangeNotifier {
 
       final avatarUrl = await _uploadService.uploadAvatar();
       if (avatarUrl != null) {
-        _currentUser?.avatarUrl = avatarUrl;
+        // Option 1: MAJ locale seulement
+        _currentUser = (_currentUser == null)
+            ? null
+            : _currentUser!.copyWith(avatarUrl: avatarUrl); // ajoute copyWith si pas déjà
         notifyListeners();
+
+        // Option 2 (recommandée): persister aussi en DB
+        await updateProfile({'avatar_url': avatarUrl});
         return true;
       }
       return false;
@@ -109,7 +121,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Déconnexion
+  /// Déconnexion
   Future<void> signOut() async {
     await _authService.signOut();
     _currentUser = null;

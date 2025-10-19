@@ -150,9 +150,15 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
           elevation: 0,
           actions: [
             if (_hasChanges || _newProfileImage != null || _newGalleryImages.isNotEmpty || _galleryImagesToDelete.isNotEmpty)
-              TextButton(
-                onPressed: _isUploadingImages ? null : _saveSettings,
-                child: const Text('Sauvegarder', style: TextStyle(color: AppTheme.primaryColor)),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),  // ✅ AJOUT DE PADDING
+                child: TextButton(
+                  onPressed: _isUploadingImages ? null : _saveSettings,
+                  child: const Text(
+                    'Sauvegarder',
+                    style: TextStyle(color: AppTheme.primaryColor),
+                  ),
+                ),
               ),
           ],
         ),
@@ -457,27 +463,28 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
               children: [
                 // Header
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Sélectionner votre quartier',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                  children: [  // ✅ RETIRER mainAxisAlignment: MainAxisAlignment.spaceBetween
+                    Expanded(  // ✅ AJOUT DE EXPANDED
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Sélectionner votre quartier',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Cela permettra aux clients de vous trouver facilement',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Cela permettra aux clients de vous trouver facilement',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -591,12 +598,14 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
-                                Text(
-                                  zone,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
+                                Expanded(  // ✅ AJOUT DE EXPANDED ICI
+                                  child: Text(
+                                    zone,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -676,7 +685,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                       children: [
                         const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                         const SizedBox(width: 8),
-                        Expanded(
+                        Expanded(  // ✅ AJOUT DE EXPANDED ICI
                           child: Text(
                             'Image obligatoire pour être visible dans la liste',
                             style: TextStyle(fontSize: 13, color: Colors.grey[700]),
@@ -835,7 +844,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
                       children: [
                         Icon(Icons.info_outline, color: AppTheme.primaryColor),
                         const SizedBox(width: 8),
-                        Expanded(
+                        Expanded(  // ✅ AJOUT DE EXPANDED ICI
                           child: Text(
                             'Jusqu\'à 4 photos additionnelles de votre barbershop',
                             style: TextStyle(fontSize: 13, color: Colors.grey[700]),

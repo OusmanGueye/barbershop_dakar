@@ -4,7 +4,7 @@ import '../config/supabase_config.dart';
 
 class BarberProvider extends ChangeNotifier {
   final BarberService _service = BarberService();
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // Données
   List<Map<String, dynamic>> _todayReservations = [];

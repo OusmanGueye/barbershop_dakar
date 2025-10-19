@@ -40,7 +40,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<void> _loadBarbers() async {
     try {
       // Charger les barbiers
-      final response = await SupabaseConfig.supabase
+      final response = await SupabaseConfig.client
           .from('barbers')
           .select()
           .eq('barbershop_id', widget.barbershop.id)
@@ -56,7 +56,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
         if (userId != null) {
           try {
-            final userResponse = await SupabaseConfig.supabase
+            final userResponse = await SupabaseConfig.client
                 .from('users')
                 .select('avatar_url')
                 .eq('id', userId)
@@ -90,7 +90,7 @@ class _BookingScreenState extends State<BookingScreen> {
       _occupiedByBarber = {};
 
       // Récupérer les réservations avec time_slot et end_time
-      final response = await SupabaseConfig.supabase
+      final response = await SupabaseConfig.client
           .from('reservations')
           .select('barber_id, time_slot, end_time')
           .eq('barbershop_id', widget.barbershop.id)

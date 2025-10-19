@@ -2,7 +2,7 @@ import '../config/supabase_config.dart';
 import '../models/reservation_model.dart';
 
 class ReservationService {
-  final _supabase = SupabaseConfig.supabase;
+  final _supabase = SupabaseConfig.client;
 
   // Créer une réservation
   Future<ReservationModel> createReservation(Map<String, dynamic> data) async {
@@ -26,7 +26,8 @@ class ReservationService {
   // Récupérer mes réservations
   Future<List<ReservationModel>> getMyReservations() async {
     try {
-      final userId = SupabaseConfig.currentUser?.id;
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+
       if (userId == null) throw Exception('Non connecté');
 
       final response = await _supabase
